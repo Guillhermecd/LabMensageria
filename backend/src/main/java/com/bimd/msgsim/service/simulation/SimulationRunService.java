@@ -70,6 +70,11 @@ public class SimulationRunService {
         return eventRepository.findByRunIdOrderBySecondAsc(runId).stream().map(mapper::toResponse).toList();
     }
 
+    public List<RunSummaryResponse> listRunsForScenario(String ownerEmail, UUID scenarioId) {
+        findOwnedScenario(ownerEmail, scenarioId);
+        return runRepository.findByScenarioIdOrderByStartedAtDesc(scenarioId).stream().map(mapper::toResponse).toList();
+    }
+
     public SimulationRun findOwnedRun(String ownerEmail, UUID runId) {
         UUID ownerId = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"))

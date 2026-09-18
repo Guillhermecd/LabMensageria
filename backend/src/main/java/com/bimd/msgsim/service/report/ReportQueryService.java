@@ -28,6 +28,8 @@ public class ReportQueryService {
     private final SimulationRunService runService;
     private final BrokerTradeoffService tradeoffService;
     private final ReportNarrativeService narrativeService;
+    private final InsightsBuilder insightsBuilder;
+    private final ConclusionBuilder conclusionBuilder;
 
     public List<TradeoffResponse> tradeoffs(String ownerEmail, UUID scenarioId) {
         Scenario scenario = findOwnedScenario(ownerEmail, scenarioId);
@@ -45,9 +47,9 @@ public class ReportQueryService {
         TradeoffResult tradeoffs = tradeoffService.evaluate(scenario);
 
         String narrative = narrativeService.narrative(scenario, run, ticks);
-        List<InsightResponse> insights = narrativeService.insights(scenario, run, ticks).stream()
+        List<InsightResponse> insights = insightsBuilder.build(scenario, run, ticks).stream()
                 .map(i -> new InsightResponse(i.tone(), i.text())).toList();
-        List<String> conclusion = narrativeService.conclusion(scenario, tradeoffs, run, ticks);
+        List<String> conclusion = conclusionBuilder.build(scenario, tradeoffs, run, ticks);
 
         return new ReportResponse(narrative, insights, conclusion);
     }

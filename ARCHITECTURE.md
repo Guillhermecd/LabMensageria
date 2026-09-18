@@ -34,9 +34,10 @@ O `Main ReadMe.md` lista 12 rotas de auth/profile assumindo que viriam prontas d
 - `PATCH /api/profile/email`
 - `PATCH /api/profile/password`
 - `POST /api/profile/image`
-- `GET /api/storage/presigned-url`
 
-Motivo do adiamento: essas rotas dependem de integração real com Mailpit (fluxo de e-mail) e MinIO/S3 (upload), que nenhuma fase do `PLAN.md` (Fases 1–8, motor de simulação e brokers) bloqueia. Serão implementadas junto com a Fase 7 (Storage/Export) ou antes, se necessário.
+Motivo do adiamento: essas rotas dependem de integração real com Mailpit (fluxo de e-mail), que nenhuma fase do `PLAN.md` (Fases 1–8, motor de simulação e brokers) bloqueia. Ainda não implementadas.
+
+**`GET /api/storage/presigned-url` saiu da lista de adiados**: entregue na Fase 7 (`StorageService` + `StorageController`), reaproveitado para exportar o relatório em PNG via MinIO — ver `docs/07-delivery.md`.
 
 ## Desvios de infraestrutura local
 
@@ -47,6 +48,10 @@ Motivo do adiamento: essas rotas dependem de integração real com Mailpit (flux
 ## Tokens de tema (frontend)
 
 `semantic` em `src/theme.ts` usa `ok / warning / danger / info` (não `income / expense` do exemplo genérico do Main ReadMe.md), porque o domínio é mensageria, não financeiro. A estrutura (`BRAND_GRADIENT`, `semantic`, `lightTheme`, `darkTheme`, suporte a claro/escuro, contraste AA) segue o padrão do template.
+
+## Integração com `infra/` (não testada)
+
+O `PLAN.md` (Fase 7) pede validar o fluxo `infra/deploy.sh`. O repositório `infra` da BIMD não está disponível neste ambiente (mesma situação do `bimd-template` na Fase 0) — o projeto segue os contratos que o Main ReadMe.md documenta (`frontend/`/`backend/` na raiz, `PORT`/`SERVER_PORT=1337`, build do frontend em `frontend/dist`, variáveis `S3_*`/`SMTP_*`/`CORS_ORIGINS`), mas o script de deploy em si não foi executado nem validado.
 
 ## Protótipo de referência
 

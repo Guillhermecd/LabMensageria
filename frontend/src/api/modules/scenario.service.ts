@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Scenario, ScenarioFormValues, Tradeoff } from './types';
+import type { RunSummary, Scenario, ScenarioFormValues, Tradeoff } from './types';
 
 export const ScenarioService = {
   list() {
@@ -28,5 +28,8 @@ export const ScenarioService = {
   },
   tradeoffs(id: string) {
     return api<Tradeoff[]>(`/scenarios/${id}/tradeoffs`);
+  },
+  runHistory(id: string) {
+    return api<RunSummary[]>(`/scenarios/${id}/runs`);
   },
 };

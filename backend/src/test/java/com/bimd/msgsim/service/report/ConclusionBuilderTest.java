@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class ReportNarrativeServiceTest {
+class ConclusionBuilderTest {
 
     private static final Map<BrokerType, String> NAMES =
             Map.of(BrokerType.KAFKA, "Kafka", BrokerType.RABBITMQ, "RabbitMQ", BrokerType.SQS, "SQS/SNS");
@@ -26,8 +26,7 @@ class ReportNarrativeServiceTest {
     private final AnalyticalQueueModel model = new AnalyticalQueueModel(
             List.of(new KafkaBehavior(), new RabbitMqBehavior(), new SqsBehavior()), costEstimator);
     private final BrokerTradeoffService tradeoffService = new BrokerTradeoffService(model);
-    private final ReportNarrativeService narrativeService =
-            new ReportNarrativeService(List.of(new KafkaBehavior(), new RabbitMqBehavior(), new SqsBehavior()));
+    private final ConclusionBuilder conclusionBuilder = new ConclusionBuilder();
 
     @Test
     void should_citeWinningBroker_when_generatingConclusion() {
@@ -37,7 +36,7 @@ class ReportNarrativeServiceTest {
         TradeoffResult tradeoffs = tradeoffService.evaluate(scenario);
         SimulationRun run = new SimulationRun();
 
-        List<String> conclusion = narrativeService.conclusion(scenario, tradeoffs, run, List.of());
+        List<String> conclusion = conclusionBuilder.build(scenario, tradeoffs, run, List.of());
 
         String winnerName = NAMES.get(tradeoffs.best().model().broker());
         assertThat(conclusion.get(0)).contains(winnerName);

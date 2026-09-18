@@ -1,10 +1,12 @@
 package com.bimd.msgsim.controller;
 
+import com.bimd.msgsim.domain.dto.RunSummaryResponse;
 import com.bimd.msgsim.domain.dto.ScenarioRequest;
 import com.bimd.msgsim.domain.dto.ScenarioResponse;
 import com.bimd.msgsim.domain.dto.TradeoffResponse;
 import com.bimd.msgsim.service.report.ReportQueryService;
 import com.bimd.msgsim.service.scenario.ScenarioService;
+import com.bimd.msgsim.service.simulation.SimulationRunService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +31,7 @@ public class ScenarioController {
 
     private final ScenarioService scenarioService;
     private final ReportQueryService reportQueryService;
+    private final SimulationRunService runService;
 
     @GetMapping
     public List<ScenarioResponse> list(@AuthenticationPrincipal UserDetails principal) {
@@ -71,5 +74,10 @@ public class ScenarioController {
     @GetMapping("/{id}/tradeoffs")
     public List<TradeoffResponse> tradeoffs(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID id) {
         return reportQueryService.tradeoffs(principal.getUsername(), id);
+    }
+
+    @GetMapping("/{id}/runs")
+    public List<RunSummaryResponse> runHistory(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID id) {
+        return runService.listRunsForScenario(principal.getUsername(), id);
     }
 }
