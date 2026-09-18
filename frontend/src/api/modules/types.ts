@@ -77,3 +77,32 @@ export type SimulationEvent = {
   type: EventType;
   message: string;
 };
+
+export type Tradeoff = {
+  broker: Broker;
+  best: boolean;
+  score: number;
+  capacity: number;
+  ratio: number;
+  p50Ms: number;
+  p99Ms: number;
+  backlog: number;
+  loss: number;
+  lossPct: number;
+  cost: number;
+  pros: string[];
+  cons: string[];
+};
+
+export type InsightTone = 'ok' | 'warning' | 'danger' | 'info';
+
+export type Insight = {
+  tone: InsightTone;
+  text: string;
+};
+
+export type AnalyticalReport = {
+  narrative: string;
+  insights: Insight[];
+  conclusion: string[];
+};

@@ -1,9 +1,11 @@
 package com.bimd.msgsim.controller;
 
 import com.bimd.msgsim.domain.dto.EventResponse;
+import com.bimd.msgsim.domain.dto.ReportResponse;
 import com.bimd.msgsim.domain.dto.RunSummaryResponse;
 import com.bimd.msgsim.domain.dto.TickResponse;
 import com.bimd.msgsim.domain.model.RunMode;
+import com.bimd.msgsim.service.report.ReportQueryService;
 import com.bimd.msgsim.service.simulation.LiveSimulationService;
 import com.bimd.msgsim.service.simulation.SimulationRunService;
 import java.util.List;
@@ -26,6 +28,7 @@ public class RunController {
 
     private final SimulationRunService runService;
     private final LiveSimulationService liveSimulationService;
+    private final ReportQueryService reportQueryService;
 
     @PostMapping("/api/scenarios/{scenarioId}/runs")
     public ResponseEntity<RunSummaryResponse> createRun(
@@ -66,5 +69,10 @@ public class RunController {
     public ResponseEntity<Void> stop(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
         liveSimulationService.stop(principal.getUsername(), runId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/runs/{runId}/report")
+    public ReportResponse report(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
+        return reportQueryService.report(principal.getUsername(), runId);
     }
 }

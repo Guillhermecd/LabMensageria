@@ -1,18 +1,35 @@
 import { PauseCircleOutlined, PlayCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Typography } from 'antd';
 import { BacklogChart } from './BacklogChart';
+import { ConclusionPanel } from './ConclusionPanel';
 import { ConsumerUtilization } from './ConsumerUtilization';
 import { EventTimeline } from './EventTimeline';
+import { HelpLabel } from '../../components/ui/HelpLabel';
+import { InsightsList } from './InsightsList';
 import { KpiGrid } from './KpiGrid';
 import { LatencyChart } from './LatencyChart';
 import { MessageOutcomeBar } from './MessageOutcomeBar';
+import { NarrativePanel } from './NarrativePanel';
 import { ThroughputChart } from './ThroughputChart';
+import { TradeoffCards } from './TradeoffCards';
 import { buildKpis } from './reportMetrics';
 import { useRunReport } from './useRunReport';
 
 export function ReportPanel({ scenarioId }: { scenarioId: string }) {
-  const { scenario, run, ticks, events, running, live, error, runInstant, runLive, stopLive } =
-    useRunReport(scenarioId);
+  const {
+    scenario,
+    tradeoffs,
+    run,
+    ticks,
+    events,
+    report,
+    running,
+    live,
+    error,
+    runInstant,
+    runLive,
+    stopLive,
+  } = useRunReport(scenarioId);
 
   const hasResult = !!(scenario && run && ticks.length > 0);
   const isLiveRunning = running && live;
@@ -72,35 +89,63 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
         <Empty description="Clique em “Resultado instantâneo” ou “Rodar ao vivo” para gerar o relatório deste cenário." />
       )}
 
-      {hasResult && (
-        <Space orientation="vertical" size={24} style={{ width: '100%' }}>
-          <KpiGrid kpis={buildKpis(scenario, run, ticks)} />
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={12}>
-              <ThroughputChart ticks={ticks} />
-            </Col>
-            <Col xs={24} xl={12}>
-              <BacklogChart scenario={scenario} ticks={ticks} />
-            </Col>
-          </Row>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={12}>
-              <LatencyChart ticks={ticks} />
-            </Col>
-            <Col xs={24} xl={12}>
-              <ConsumerUtilization scenario={scenario} ticks={ticks} />
-            </Col>
-          </Row>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} xl={12}>
-              <MessageOutcomeBar run={run} />
-            </Col>
-            <Col xs={24} xl={12}>
-              <EventTimeline events={events} />
-            </Col>
-          </Row>
-        </Space>
-      )}
+      <Space orientation="vertical" size={24} style={{ width: '100%' }}>
+        {tradeoffs.length > 0 && (
+          <div>
+            <Typography.Title level={5} style={{ marginBottom: 12 }}>
+              <HelpLabel
+                label="Kafka × RabbitMQ × SQS"
+                tip="Modelo analítico (teoria de filas M/M/c simplificada) aplicado aos parâmetros do cenário selecionado em cada broker. Não depende de rodar a simulação."
+              />
+            </Typography.Title>
+            <TradeoffCards tradeoffs={tradeoffs} />
+          </div>
+        )}
+
+        {hasResult && (
+          <>
+            <KpiGrid kpis={buildKpis(scenario, run, ticks)} />
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={12}>
+                <ThroughputChart ticks={ticks} />
+              </Col>
+              <Col xs={24} xl={12}>
+                <BacklogChart scenario={scenario} ticks={ticks} />
+              </Col>
+            </Row>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={12}>
+                <LatencyChart ticks={ticks} />
+              </Col>
+              <Col xs={24} xl={12}>
+                <ConsumerUtilization scenario={scenario} ticks={ticks} />
+              </Col>
+            </Row>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={12}>
+                <MessageOutcomeBar run={run} />
+              </Col>
+              <Col xs={24} xl={12}>
+                <EventTimeline events={events} />
+              </Col>
+            </Row>
+          </>
+        )}
+
+        {report && (
+          <>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} xl={12}>
+                <InsightsList insights={report.insights} />
+              </Col>
+              <Col xs={24} xl={12}>
+                <NarrativePanel narrative={report.narrative} />
+              </Col>
+            </Row>
+            <ConclusionPanel conclusion={report.conclusion} />
+          </>
+        )}
+      </Space>
     </div>
   );
 }

@@ -58,4 +58,14 @@ public class RabbitMqBehavior implements BrokerBehavior {
     public String firstDlqMessage() {
         return "Primeiras mensagens movidas para a dead-letter queue.";
     }
+
+    @Override
+    public int analyticalRetryDelayMs(Scenario scenario) {
+        return scenario.getProcessingMs();
+    }
+
+    @Override
+    public double operationalSimplicityScore() {
+        return 0.70;
+    }
 }

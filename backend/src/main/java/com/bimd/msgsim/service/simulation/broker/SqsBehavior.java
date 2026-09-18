@@ -46,4 +46,17 @@ public class SqsBehavior implements BrokerBehavior {
     public String firstDlqMessage() {
         return "Primeiras mensagens movidas para a dead-letter queue.";
     }
+
+    @Override
+    public int analyticalRetryDelayMs(Scenario scenario) {
+        int visibilityTimeout = scenario.getVisibilityTimeoutSeconds() != null
+                ? scenario.getVisibilityTimeoutSeconds()
+                : DEFAULT_VISIBILITY_TIMEOUT_SECONDS;
+        return visibilityTimeout * 1000;
+    }
+
+    @Override
+    public double operationalSimplicityScore() {
+        return 1.0; // fully managed, nothing to operate
+    }
 }

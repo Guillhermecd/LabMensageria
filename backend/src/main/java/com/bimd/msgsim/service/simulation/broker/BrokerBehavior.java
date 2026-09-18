@@ -26,4 +26,10 @@ public interface BrokerBehavior {
 
     /** Message shown the first time a message reaches the DLQ for this run. */
     String firstDlqMessage();
+
+    /** Retry delay (ms) used by the closed-form analytical model — not the tick-by-tick engine. */
+    int analyticalRetryDelayMs(Scenario scenario);
+
+    /** Relative operational simplicity (0..1, higher = simpler to run) used by the trade-off score. */
+    double operationalSimplicityScore();
 }

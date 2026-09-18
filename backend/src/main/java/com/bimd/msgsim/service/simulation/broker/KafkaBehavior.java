@@ -43,4 +43,14 @@ public class KafkaBehavior implements BrokerBehavior {
     public String firstDlqMessage() {
         return "Primeiras mensagens enviadas ao tópico de DLQ após esgotar retries.";
     }
+
+    @Override
+    public int analyticalRetryDelayMs(Scenario scenario) {
+        return scenario.getProcessingMs();
+    }
+
+    @Override
+    public double operationalSimplicityScore() {
+        return 0.45; // brokers, partitions and offsets to operate
+    }
 }

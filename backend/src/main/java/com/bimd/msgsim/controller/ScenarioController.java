@@ -2,6 +2,8 @@ package com.bimd.msgsim.controller;
 
 import com.bimd.msgsim.domain.dto.ScenarioRequest;
 import com.bimd.msgsim.domain.dto.ScenarioResponse;
+import com.bimd.msgsim.domain.dto.TradeoffResponse;
+import com.bimd.msgsim.service.report.ReportQueryService;
 import com.bimd.msgsim.service.scenario.ScenarioService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ScenarioController {
 
     private final ScenarioService scenarioService;
+    private final ReportQueryService reportQueryService;
 
     @GetMapping
     public List<ScenarioResponse> list(@AuthenticationPrincipal UserDetails principal) {
@@ -63,5 +66,10 @@ public class ScenarioController {
             @AuthenticationPrincipal UserDetails principal, @PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(scenarioService.duplicate(principal.getUsername(), id));
+    }
+
+    @GetMapping("/{id}/tradeoffs")
+    public List<TradeoffResponse> tradeoffs(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID id) {
+        return reportQueryService.tradeoffs(principal.getUsername(), id);
     }
 }

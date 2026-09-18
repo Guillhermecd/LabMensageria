@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ScenarioService } from '../../api/modules/scenario.service';
 import { RunService } from '../../api/modules/run.service';
-import type { RunSummary, Scenario, SimulationEvent, Tick } from '../../api/modules/types';
+import type {
+  AnalyticalReport,
+  RunSummary,
+  Scenario,
+  SimulationEvent,
+  Tick,
+  Tradeoff,
+} from '../../api/modules/types';
 
 const LIVE_SPEED = 5;
 
 export function useRunReport(scenarioId: string) {
   const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [tradeoffs, setTradeoffs] = useState<Tradeoff[]>([]);
   const [run, setRun] = useState<RunSummary | null>(null);
   const [ticks, setTicks] = useState<Tick[]>([]);
   const [events, setEvents] = useState<SimulationEvent[]>([]);
+  const [report, setReport] = useState<AnalyticalReport | null>(null);
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,9 +26,11 @@ export function useRunReport(scenarioId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    ScenarioService.get(scenarioId)
-      .then((data) => {
-        if (!cancelled) setScenario(data);
+    Promise.all([ScenarioService.get(scenarioId), ScenarioService.tradeoffs(scenarioId)])
+      .then(([scenarioData, tradeoffData]) => {
+        if (cancelled) return;
+        setScenario(scenarioData);
+        setTradeoffs(tradeoffData);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar cenário');
@@ -36,6 +47,14 @@ export function useRunReport(scenarioId: string) {
 
   useEffect(() => closeStream, [closeStream]);
 
+  const loadReport = useCallback(async (runId: string) => {
+    try {
+      setReport(await RunService.getReport(runId));
+    } catch {
+      // the tick/KPI data already rendered is more important than the narrative text
+    }
+  }, []);
+
   const runInstant = useCallback(async () => {
     closeStream();
     setError(null);
@@ -43,6 +62,7 @@ export function useRunReport(scenarioId: string) {
     setLive(false);
     setTicks([]);
     setEvents([]);
+    setReport(null);
     try {
       const summary = await RunService.runInstant(scenarioId);
       const [tickList, eventList] = await Promise.all([
@@ -52,18 +72,20 @@ export function useRunReport(scenarioId: string) {
       setRun(summary);
       setTicks(tickList);
       setEvents(eventList);
+      await loadReport(summary.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao rodar a simulação');
     } finally {
       setRunning(false);
     }
-  }, [scenarioId, closeStream]);
+  }, [scenarioId, closeStream, loadReport]);
 
   const runLive = useCallback(async () => {
     closeStream();
     setError(null);
     setTicks([]);
     setEvents([]);
+    setReport(null);
     setRunning(true);
     setLive(true);
     try {
@@ -86,6 +108,7 @@ export function useRunReport(scenarioId: string) {
         setRun(finalSummary);
         setRunning(false);
         closeStream();
+        loadReport(finalSummary.id);
       });
       source.onerror = () => {
         setError('Conexão com a simulação ao vivo foi perdida.');
@@ -96,7 +119,7 @@ export function useRunReport(scenarioId: string) {
       setError(err instanceof Error ? err.message : 'Falha ao iniciar simulação ao vivo');
       setRunning(false);
     }
-  }, [scenarioId, closeStream]);
+  }, [scenarioId, closeStream, loadReport]);
 
   const stopLive = useCallback(async () => {
     if (!run) return;
@@ -107,5 +130,18 @@ export function useRunReport(scenarioId: string) {
     }
   }, [run]);
 
-  return { scenario, run, ticks, events, running, live, error, runInstant, runLive, stopLive };
+  return {
+    scenario,
+    tradeoffs,
+    run,
+    ticks,
+    events,
+    report,
+    running,
+    live,
+    error,
+    runInstant,
+    runLive,
+    stopLive,
+  };
 }

@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Scenario, ScenarioFormValues } from './types';
+import type { Scenario, ScenarioFormValues, Tradeoff } from './types';
 
 export const ScenarioService = {
   list() {
@@ -25,5 +25,8 @@ export const ScenarioService = {
   },
   duplicate(id: string) {
     return api<Scenario>(`/scenarios/${id}/duplicate`, { method: 'POST' });
+  },
+  tradeoffs(id: string) {
+    return api<Tradeoff[]>(`/scenarios/${id}/tradeoffs`);
   },
 };
