@@ -23,6 +23,8 @@ export const semantic = {
   },
 } as const;
 
+export type SemanticTone = keyof typeof semantic.light;
+
 export const lightTheme: ThemeConfig = {
   algorithm: antdTheme.defaultAlgorithm,
   token: {

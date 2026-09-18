@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { darkTheme, lightTheme } from '../theme';
+import { darkTheme, lightTheme, semantic } from '../theme';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -43,5 +43,5 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
-  return { ...ctx, config: ctx.mode === 'dark' ? darkTheme : lightTheme };
+  return { ...ctx, config: ctx.mode === 'dark' ? darkTheme : lightTheme, semantic };
 }

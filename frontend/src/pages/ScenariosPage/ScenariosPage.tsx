@@ -1,11 +1,14 @@
-import { Alert, Col, Layout, Row, Typography } from 'antd';
+import { Alert, Space, Typography } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { ScenarioService } from '../../api/modules/scenario.service';
+import { useTheme } from '../../hooks/useTheme';
 import type { Scenario, ScenarioFormValues } from '../../api/modules/types';
+import { ReportPanel } from '../ReportPage';
 import { ScenarioForm } from './ScenarioForm';
 import { ScenarioList } from './ScenarioList';
 
 export function ScenariosPage() {
+  const { config } = useTheme();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -67,19 +70,37 @@ export function ScenariosPage() {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh', padding: 24 }}>
-      <Typography.Title level={3}>Cenários</Typography.Title>
-      {error && (
-        <Alert
-          type="error"
-          message={error}
-          style={{ marginBottom: 16 }}
-          closable
-          onClose={() => setError(null)}
-        />
-      )}
-      <Row gutter={24}>
-        <Col span={8}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '340px minmax(0,1fr)',
+        minHeight: '100vh',
+        background: config.token?.colorBgLayout,
+        color: config.token?.colorText,
+      }}
+    >
+      <aside
+        style={{
+          borderRight: '1px solid rgba(128,128,128,0.2)',
+          background: config.token?.colorBgBase,
+          padding: 20,
+          overflowY: 'auto',
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+        }}
+      >
+        <Typography.Title level={4}>Cenários</Typography.Title>
+        {error && (
+          <Alert
+            type="error"
+            message={error}
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setError(null)}
+          />
+        )}
+        <Space orientation="vertical" style={{ width: '100%' }} size={16}>
           <ScenarioList
             scenarios={scenarios}
             selectedId={selectedId}
@@ -88,11 +109,19 @@ export function ScenariosPage() {
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
           />
-        </Col>
-        <Col span={16}>
           <ScenarioForm scenario={selected} saving={saving} onSubmit={handleSubmit} />
-        </Col>
-      </Row>
-    </Layout>
+        </Space>
+      </aside>
+
+      <main style={{ padding: 24 }}>
+        {selected ? (
+          <ReportPanel key={selected.id} scenarioId={selected.id} />
+        ) : (
+          <Typography.Text type="secondary">
+            Crie ou selecione um cenário para ver o relatório.
+          </Typography.Text>
+        )}
+      </main>
+    </div>
   );
 }
