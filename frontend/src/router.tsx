@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
-import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
+import { ScenariosPage } from './pages/ScenariosPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -16,7 +16,7 @@ export function AppRouter() {
         path="/"
         element={
           <PrivateRoute>
-            <HomePage />
+            <ScenariosPage />
           </PrivateRoute>
         }
       />
