@@ -7,9 +7,7 @@ import com.bimd.msgsim.domain.mapper.SimulationRunMapper;
 import com.bimd.msgsim.domain.model.RunMode;
 import com.bimd.msgsim.domain.model.RunStatus;
 import com.bimd.msgsim.domain.model.Scenario;
-import com.bimd.msgsim.domain.model.SimulationEvent;
 import com.bimd.msgsim.domain.model.SimulationRun;
-import com.bimd.msgsim.domain.model.SimulationTick;
 import com.bimd.msgsim.exception.BusinessException;
 import com.bimd.msgsim.repository.ScenarioRepository;
 import com.bimd.msgsim.repository.SimulationEventRepository;
@@ -34,37 +32,27 @@ public class SimulationRunService {
     private final SimulationTickRepository tickRepository;
     private final SimulationEventRepository eventRepository;
     private final SimulationEngine engine;
+    private final SimulationPersistence persistence;
     private final SimulationRunMapper mapper;
 
     @Transactional
     public RunSummaryResponse runInstant(String ownerEmail, UUID scenarioId, Long requestedSeed) {
         Scenario scenario = findOwnedScenario(ownerEmail, scenarioId);
-        long seed = requestedSeed != null ? requestedSeed : System.nanoTime();
+        SimulationRun run = createRun(scenario, RunMode.INSTANT, requestedSeed);
 
-        SimulationRun run = new SimulationRun();
-        run.setScenario(scenario);
-        run.setStatus(RunStatus.RUNNING);
-        run.setMode(RunMode.INSTANT);
-        run.setSeed(seed);
-        run.setStartedAt(Instant.now());
-        runRepository.save(run);
+        SimulationState state = engine.runToCompletion(scenario, run.getSeed());
 
-        SimulationState state = engine.runToCompletion(scenario, seed);
+        persistence.saveTicks(run, state.getTicks());
+        persistence.saveEvents(run, state.getEvents());
+        persistence.complete(run, RunStatus.COMPLETED, state);
 
-        List<SimulationTick> ticks = state.getTicks().stream().map(t -> toEntity(run, t)).toList();
-        List<SimulationEvent> events = state.getEvents().stream().map(e -> toEntity(run, e)).toList();
-        tickRepository.saveAll(ticks);
-        eventRepository.saveAll(events);
+        return mapper.toResponse(run);
+    }
 
-        run.setStatus(RunStatus.COMPLETED);
-        run.setFinishedAt(Instant.now());
-        run.setProducedTotal(state.getProduced());
-        run.setDeliveredTotal(state.getOk());
-        run.setDlqTotal(state.getDlq());
-        run.setDroppedTotal(state.getDropped());
-        run.setRetriesTotal(state.getRetries());
-        runRepository.save(run);
-
+    @Transactional
+    public RunSummaryResponse createLiveRun(String ownerEmail, UUID scenarioId, Long requestedSeed) {
+        Scenario scenario = findOwnedScenario(ownerEmail, scenarioId);
+        SimulationRun run = createRun(scenario, RunMode.LIVE, requestedSeed);
         return mapper.toResponse(run);
     }
 
@@ -82,30 +70,23 @@ public class SimulationRunService {
         return eventRepository.findByRunIdOrderBySecondAsc(runId).stream().map(mapper::toResponse).toList();
     }
 
-    private SimulationTick toEntity(SimulationRun run, TickResult result) {
-        SimulationTick tick = new SimulationTick();
-        tick.setRun(run);
-        tick.setSecond(result.second());
-        tick.setProduced(result.produced());
-        tick.setConsumed(result.consumed());
-        tick.setFailed(result.failed());
-        tick.setDropped(result.dropped());
-        tick.setBacklog(result.backlog());
-        tick.setUtilization(result.utilization());
-        tick.setP50Ms(result.p50Ms());
-        tick.setP95Ms(result.p95Ms());
-        tick.setP99Ms(result.p99Ms());
-        tick.setCapacity(result.capacity());
-        return tick;
+    public SimulationRun findOwnedRun(String ownerEmail, UUID runId) {
+        UUID ownerId = userRepository.findByEmail(ownerEmail)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"))
+                .getId();
+        return runRepository.findByIdAndScenarioOwnerId(runId, ownerId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Run not found"));
     }
 
-    private SimulationEvent toEntity(SimulationRun run, EventResult result) {
-        SimulationEvent event = new SimulationEvent();
-        event.setRun(run);
-        event.setSecond(result.second());
-        event.setType(result.type());
-        event.setMessage(result.message());
-        return event;
+    private SimulationRun createRun(Scenario scenario, RunMode mode, Long requestedSeed) {
+        SimulationRun run = new SimulationRun();
+        run.setScenario(scenario);
+        run.setStatus(RunStatus.RUNNING);
+        run.setMode(mode);
+        run.setSeed(requestedSeed != null ? requestedSeed : System.nanoTime());
+        run.setStartedAt(Instant.now());
+        runRepository.save(run);
+        return run;
     }
 
     private Scenario findOwnedScenario(String ownerEmail, UUID scenarioId) {
@@ -114,13 +95,5 @@ public class SimulationRunService {
                 .getId();
         return scenarioRepository.findByIdAndOwnerId(scenarioId, ownerId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Scenario not found"));
-    }
-
-    private SimulationRun findOwnedRun(String ownerEmail, UUID runId) {
-        UUID ownerId = userRepository.findByEmail(ownerEmail)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "User not found"))
-                .getId();
-        return runRepository.findByIdAndScenarioOwnerId(runId, ownerId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Run not found"));
     }
 }

@@ -4,7 +4,7 @@ import com.bimd.msgsim.domain.dto.EventResponse;
 import com.bimd.msgsim.domain.dto.RunSummaryResponse;
 import com.bimd.msgsim.domain.dto.TickResponse;
 import com.bimd.msgsim.domain.model.RunMode;
-import com.bimd.msgsim.exception.BusinessException;
+import com.bimd.msgsim.service.simulation.LiveSimulationService;
 import com.bimd.msgsim.service.simulation.SimulationRunService;
 import java.util.List;
 import java.util.UUID;
@@ -18,12 +18,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequiredArgsConstructor
 public class RunController {
 
     private final SimulationRunService runService;
+    private final LiveSimulationService liveSimulationService;
 
     @PostMapping("/api/scenarios/{scenarioId}/runs")
     public ResponseEntity<RunSummaryResponse> createRun(
@@ -31,10 +33,9 @@ public class RunController {
             @PathVariable UUID scenarioId,
             @RequestParam(defaultValue = "INSTANT") RunMode mode,
             @RequestParam(required = false) Long seed) {
-        if (mode != RunMode.INSTANT) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "mode=LIVE is not available yet");
-        }
-        RunSummaryResponse response = runService.runInstant(principal.getUsername(), scenarioId, seed);
+        RunSummaryResponse response = mode == RunMode.LIVE
+                ? runService.createLiveRun(principal.getUsername(), scenarioId, seed)
+                : runService.runInstant(principal.getUsername(), scenarioId, seed);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -51,5 +52,19 @@ public class RunController {
     @GetMapping("/api/runs/{runId}/events")
     public List<EventResponse> listEvents(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
         return runService.listEvents(principal.getUsername(), runId);
+    }
+
+    @GetMapping("/api/runs/{runId}/stream")
+    public SseEmitter stream(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID runId,
+            @RequestParam(defaultValue = "5") int speed) {
+        return liveSimulationService.stream(principal.getUsername(), runId, speed);
+    }
+
+    @PostMapping("/api/runs/{runId}/stop")
+    public ResponseEntity<Void> stop(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
+        liveSimulationService.stop(principal.getUsername(), runId);
+        return ResponseEntity.noContent().build();
     }
 }

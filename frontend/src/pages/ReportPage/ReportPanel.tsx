@@ -1,5 +1,5 @@
-import { PlayCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Col, Empty, Row, Space, Spin, Typography } from 'antd';
+import { PauseCircleOutlined, PlayCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Typography } from 'antd';
 import { BacklogChart } from './BacklogChart';
 import { ConsumerUtilization } from './ConsumerUtilization';
 import { EventTimeline } from './EventTimeline';
@@ -11,8 +11,16 @@ import { buildKpis } from './reportMetrics';
 import { useRunReport } from './useRunReport';
 
 export function ReportPanel({ scenarioId }: { scenarioId: string }) {
-  const { scenario, run, ticks, events, running, error, runInstant } = useRunReport(scenarioId);
+  const { scenario, run, ticks, events, running, live, error, runInstant, runLive, stopLive } =
+    useRunReport(scenarioId);
+
   const hasResult = !!(scenario && run && ticks.length > 0);
+  const isLiveRunning = running && live;
+  const isInstantLoading = running && !live && ticks.length === 0;
+  const lastSecond = ticks[ticks.length - 1]?.second ?? -1;
+  const progressPct = scenario
+    ? Math.min(100, Math.round(((lastSecond + 1) / scenario.durationSeconds) * 100))
+    : 0;
 
   return (
     <div>
@@ -23,23 +31,45 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
         <Typography.Title level={4} style={{ margin: 0 }}>
           Relatório {scenario ? `— ${scenario.name}` : ''}
         </Typography.Title>
-        <Button
-          type="primary"
-          icon={<PlayCircleOutlined />}
-          onClick={runInstant}
-          loading={running}
-          disabled={!scenario}
-        >
-          Resultado instantâneo
-        </Button>
+        <Space>
+          {isLiveRunning ? (
+            <Button danger icon={<PauseCircleOutlined />} onClick={stopLive}>
+              Parar
+            </Button>
+          ) : (
+            <>
+              <Button
+                icon={<ThunderboltOutlined />}
+                onClick={runLive}
+                loading={running}
+                disabled={!scenario}
+              >
+                Rodar ao vivo
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                onClick={runInstant}
+                loading={running}
+                disabled={!scenario}
+              >
+                Resultado instantâneo
+              </Button>
+            </>
+          )}
+        </Space>
       </Space>
 
       {error && <Alert type="error" message={error} style={{ marginBottom: 16 }} closable />}
 
-      {running && <Spin description="Rodando simulação..." />}
+      {isLiveRunning && (
+        <Progress percent={progressPct} status="active" style={{ marginBottom: 16 }} />
+      )}
+
+      {isInstantLoading && <Spin description="Rodando simulação..." />}
 
       {!running && !hasResult && !error && (
-        <Empty description="Clique em “Resultado instantâneo” para gerar o relatório deste cenário." />
+        <Empty description="Clique em “Resultado instantâneo” ou “Rodar ao vivo” para gerar o relatório deste cenário." />
       )}
 
       {hasResult && (
