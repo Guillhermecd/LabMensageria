@@ -1,5 +1,5 @@
 import { api, authStorage, BASE_URL } from './api';
-import type { AnalyticalReport, RunSummary, SimulationEvent, Tick } from './types';
+import type { AnalyticalReport, CompareResult, RunSummary, SimulationEvent, Tick } from './types';
 
 export const RunService = {
   runInstant(scenarioId: string, seed?: number) {
@@ -24,6 +24,9 @@ export const RunService = {
   },
   getReport(runId: string) {
     return api<AnalyticalReport>(`/runs/${runId}/report`);
+  },
+  compare(runIdA: string, runIdB: string) {
+    return api<CompareResult>(`/runs/compare?a=${runIdA}&b=${runIdB}`);
   },
   streamUrl(runId: string, speed: number) {
     const token = authStorage.getToken() ?? '';

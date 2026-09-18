@@ -1,5 +1,7 @@
-import { Alert, Space, Typography } from 'antd';
+import { SwapOutlined } from '@ant-design/icons';
+import { Alert, Button, Space, Typography } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ScenarioService } from '../../api/modules/scenario.service';
 import { useTheme } from '../../hooks/useTheme';
 import type { Scenario, ScenarioFormValues } from '../../api/modules/types';
@@ -90,7 +92,16 @@ export function ScenariosPage() {
           top: 0,
         }}
       >
-        <Typography.Title level={4}>Cenários</Typography.Title>
+        <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Cenários
+          </Typography.Title>
+          <Link to="/compare">
+            <Button size="small" icon={<SwapOutlined />}>
+              Comparar
+            </Button>
+          </Link>
+        </Space>
         {error && (
           <Alert
             type="error"

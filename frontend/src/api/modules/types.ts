@@ -106,3 +106,16 @@ export type AnalyticalReport = {
   insights: Insight[];
   conclusion: string[];
 };
+
+export type RunReport = {
+  scenario: Scenario;
+  run: RunSummary;
+  ticks: Tick[];
+  events: SimulationEvent[];
+};
+
+export type CompareResult = {
+  a: RunReport;
+  b: RunReport;
+  comparison: string;
+};

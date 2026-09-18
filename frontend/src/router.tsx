@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { ComparePage } from './pages/ComparePage';
 import { LoginPage } from './pages/LoginPage';
 import { ScenariosPage } from './pages/ScenariosPage';
 
@@ -17,6 +18,14 @@ export function AppRouter() {
         element={
           <PrivateRoute>
             <ScenariosPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/compare"
+        element={
+          <PrivateRoute>
+            <ComparePage />
           </PrivateRoute>
         }
       />

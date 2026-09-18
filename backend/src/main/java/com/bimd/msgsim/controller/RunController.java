@@ -1,10 +1,12 @@
 package com.bimd.msgsim.controller;
 
+import com.bimd.msgsim.domain.dto.CompareResponse;
 import com.bimd.msgsim.domain.dto.EventResponse;
 import com.bimd.msgsim.domain.dto.ReportResponse;
 import com.bimd.msgsim.domain.dto.RunSummaryResponse;
 import com.bimd.msgsim.domain.dto.TickResponse;
 import com.bimd.msgsim.domain.model.RunMode;
+import com.bimd.msgsim.service.report.CompareService;
 import com.bimd.msgsim.service.report.ReportQueryService;
 import com.bimd.msgsim.service.simulation.LiveSimulationService;
 import com.bimd.msgsim.service.simulation.SimulationRunService;
@@ -29,6 +31,7 @@ public class RunController {
     private final SimulationRunService runService;
     private final LiveSimulationService liveSimulationService;
     private final ReportQueryService reportQueryService;
+    private final CompareService compareService;
 
     @PostMapping("/api/scenarios/{scenarioId}/runs")
     public ResponseEntity<RunSummaryResponse> createRun(
@@ -74,5 +77,13 @@ public class RunController {
     @GetMapping("/api/runs/{runId}/report")
     public ReportResponse report(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
         return reportQueryService.report(principal.getUsername(), runId);
+    }
+
+    @GetMapping("/api/runs/compare")
+    public CompareResponse compare(
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestParam UUID a,
+            @RequestParam UUID b) {
+        return compareService.compare(principal.getUsername(), a, b);
     }
 }
