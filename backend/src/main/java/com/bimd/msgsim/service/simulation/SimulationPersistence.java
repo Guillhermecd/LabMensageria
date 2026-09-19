@@ -32,13 +32,21 @@ public class SimulationPersistence {
     }
 
     public void complete(SimulationRun run, RunStatus status, SimulationState state) {
+        complete(run, status, state.getProduced(), state.getOk(), state.getDlq(), state.getDropped(), state.getRetries());
+    }
+
+    /** Same finalization, for callers that don't have a {@link SimulationState} — e.g. a real-broker
+     * run, whose totals come from measured counters, not the simulated engine's internal state. */
+    public void complete(
+            SimulationRun run, RunStatus status,
+            long producedTotal, long deliveredTotal, long dlqTotal, long droppedTotal, long retriesTotal) {
         run.setStatus(status);
         run.setFinishedAt(Instant.now());
-        run.setProducedTotal(state.getProduced());
-        run.setDeliveredTotal(state.getOk());
-        run.setDlqTotal(state.getDlq());
-        run.setDroppedTotal(state.getDropped());
-        run.setRetriesTotal(state.getRetries());
+        run.setProducedTotal(producedTotal);
+        run.setDeliveredTotal(deliveredTotal);
+        run.setDlqTotal(dlqTotal);
+        run.setDroppedTotal(droppedTotal);
+        run.setRetriesTotal(retriesTotal);
         runRepository.save(run);
     }
 

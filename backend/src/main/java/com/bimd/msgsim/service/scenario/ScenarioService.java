@@ -74,6 +74,7 @@ public class ScenarioService {
         copy.setVisibilityTimeoutSeconds(source.getVisibilityTimeoutSeconds());
         copy.setDlqEnabled(source.isDlqEnabled());
         copy.setBurstEnabled(source.isBurstEnabled());
+        copy.setExecutionMode(source.getExecutionMode());
         scenarioRepository.save(copy);
         return scenarioMapper.toResponse(copy);
     }

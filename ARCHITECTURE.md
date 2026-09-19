@@ -8,7 +8,7 @@
 | Banco | PostgreSQL | Relações fixas (Scenario → SimulationRun → Tick/Event); relatórios e queries analíticas sobre execuções |
 | ORM | `spring-boot-starter-data-jpa` + Hibernate, `ddl-auto=validate` + Flyway | Schema controlado por migration, nunca por auto-DDL |
 | Frontend | React + TypeScript + Vite + Ant Design + React Hook Form + Dayjs | Definição do Main ReadMe.md (template BIMD) |
-| Brokers reais | Kafka, RabbitMQ, LocalStack (SQS) via Docker | Fase 8 — testar os três localmente sem conta AWS |
+| Brokers reais | RabbitMQ via Docker (spring-amqp) | Fase 8, escopo reduzido — ver seção abaixo |
 | Live run | SSE (`SseEmitter`) | Simulação ao vivo sem WebSocket (Fase 4) |
 | Estado global (frontend) | React Context (`useAuth`, `useTheme`) — sem Redux | Escopo pequeno, README deixa livre |
 
@@ -52,6 +52,16 @@ Motivo do adiamento: essas rotas dependem de integração real com Mailpit (flux
 ## Integração com `infra/` (não testada)
 
 O `PLAN.md` (Fase 7) pede validar o fluxo `infra/deploy.sh`. O repositório `infra` da BIMD não está disponível neste ambiente (mesma situação do `bimd-template` na Fase 0) — o projeto segue os contratos que o Main ReadMe.md documenta (`frontend/`/`backend/` na raiz, `PORT`/`SERVER_PORT=1337`, build do frontend em `frontend/dist`, variáveis `S3_*`/`SMTP_*`/`CORS_ORIGINS`), mas o script de deploy em si não foi executado nem validado.
+
+## Escopo da Fase 8 (execução real)
+
+O `PLAN.md` previa execução real contra Kafka, RabbitMQ e LocalStack (SQS), com Testcontainers, em 6 dias. Reduzido para **um único broker real: RabbitMQ**.
+
+**Motivo**: RabbitMQ roda localmente com um único container Docker (`rabbitmq:3.13-management-alpine`), sem dependências adicionais. Kafka exige Zookeeper ou KRaft; SQS real exige uma conta AWS (LocalStack simula, mas é mais uma peça de infraestrutura para manter rodando). Nenhum dos dois traria aprendizado adicional sobre o *padrão* de integração — o `MessageBrokerPort` (ver `docs/adr/0006-ports-and-adapters-for-brokers.md`) já é desenhado para os dois entrarem depois como adaptadores novos, sem mudar `RealSimulationService` nem o motor simulado.
+
+`Scenario.executionMode` (`SIMULATED` | `REAL`) fica disponível para os três brokers no formulário, mas `ScenarioValidator` recusa `executionMode=REAL` fora de `broker=RABBITMQ`. Kafka e SQS continuam com execução simulada (Fases 2/5) — só não têm um caminho real ainda.
+
+Ver `docs/08-real-brokers.md` para o desenho completo.
 
 ## Protótipo de referência
 

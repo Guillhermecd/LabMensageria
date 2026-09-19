@@ -5,7 +5,10 @@ import com.bimd.msgsim.domain.dto.EventResponse;
 import com.bimd.msgsim.domain.dto.ReportResponse;
 import com.bimd.msgsim.domain.dto.RunSummaryResponse;
 import com.bimd.msgsim.domain.dto.TickResponse;
+import com.bimd.msgsim.domain.model.ExecutionMode;
 import com.bimd.msgsim.domain.model.RunMode;
+import com.bimd.msgsim.domain.model.SimulationRun;
+import com.bimd.msgsim.service.real.RealSimulationService;
 import com.bimd.msgsim.service.report.CompareService;
 import com.bimd.msgsim.service.report.ReportQueryService;
 import com.bimd.msgsim.service.simulation.LiveSimulationService;
@@ -30,6 +33,7 @@ public class RunController {
 
     private final SimulationRunService runService;
     private final LiveSimulationService liveSimulationService;
+    private final RealSimulationService realSimulationService;
     private final ReportQueryService reportQueryService;
     private final CompareService compareService;
 
@@ -65,12 +69,20 @@ public class RunController {
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable UUID runId,
             @RequestParam(defaultValue = "5") int speed) {
-        return liveSimulationService.stream(principal.getUsername(), runId, speed);
+        SimulationRun run = runService.findOwnedRun(principal.getUsername(), runId);
+        return run.getScenario().getExecutionMode() == ExecutionMode.REAL
+                ? realSimulationService.stream(principal.getUsername(), runId)
+                : liveSimulationService.stream(principal.getUsername(), runId, speed);
     }
 
     @PostMapping("/api/runs/{runId}/stop")
     public ResponseEntity<Void> stop(@AuthenticationPrincipal UserDetails principal, @PathVariable UUID runId) {
-        liveSimulationService.stop(principal.getUsername(), runId);
+        SimulationRun run = runService.findOwnedRun(principal.getUsername(), runId);
+        if (run.getScenario().getExecutionMode() == ExecutionMode.REAL) {
+            realSimulationService.stop(principal.getUsername(), runId);
+        } else {
+            liveSimulationService.stop(principal.getUsername(), runId);
+        }
         return ResponseEntity.noContent().build();
     }
 
