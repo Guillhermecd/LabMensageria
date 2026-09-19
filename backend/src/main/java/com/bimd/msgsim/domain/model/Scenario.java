@@ -77,6 +77,10 @@ public class Scenario {
     @Column(name = "burst_enabled", nullable = false)
     private boolean burstEnabled = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_mode", nullable = false)
+    private ExecutionMode executionMode = ExecutionMode.SIMULATED;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

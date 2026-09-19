@@ -44,7 +44,8 @@ class ScenarioControllerTest {
     void should_returnScenarios_when_userIsAuthenticated() throws Exception {
         ScenarioResponse response = new ScenarioResponse(
                 UUID.randomUUID(), "Kafka saudável", BrokerType.KAFKA, 200, 4, 15,
-                BigDecimal.ONE, 3, 2, 120, null, 6, null, true, false, Instant.now(), Instant.now());
+                BigDecimal.ONE, 3, 2, 120, null, 6, null, true, false,
+                com.bimd.msgsim.domain.model.ExecutionMode.SIMULATED, Instant.now(), Instant.now());
         when(scenarioService.listForOwner(eq("user@example.com"))).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/scenarios").with(user("user@example.com")))
@@ -61,10 +62,12 @@ class ScenarioControllerTest {
     @Test
     void should_returnCreated_when_scenarioRequestIsValid() throws Exception {
         ScenarioRequest request = new ScenarioRequest(
-                "Novo cenário", BrokerType.SQS, 100, 2, 10, BigDecimal.TEN, 3, 2, 60, null, null, 30, true, false);
+                "Novo cenário", BrokerType.SQS, 100, 2, 10, BigDecimal.TEN, 3, 2, 60, null, null, 30, true, false,
+                com.bimd.msgsim.domain.model.ExecutionMode.SIMULATED);
         ScenarioResponse response = new ScenarioResponse(
                 UUID.randomUUID(), "Novo cenário", BrokerType.SQS, 100, 2, 10, BigDecimal.TEN, 3, 2, 60,
-                null, null, 30, true, false, Instant.now(), Instant.now());
+                null, null, 30, true, false, com.bimd.msgsim.domain.model.ExecutionMode.SIMULATED,
+                Instant.now(), Instant.now());
         when(scenarioService.create(eq("user@example.com"), any())).thenReturn(response);
 
         mockMvc.perform(post("/api/scenarios")

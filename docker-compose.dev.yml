@@ -34,6 +34,19 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  # Fase 8: broker real para o modo execution=REAL (só RabbitMQ implementado —
+  # ver ARCHITECTURE.md e ADR 0006 para o porquê de Kafka/SQS ficarem de fora).
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: msgsim-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
 volumes:
   postgres-data:
   minio-data:

@@ -8,6 +8,8 @@ export type User = {
 
 export type Broker = 'KAFKA' | 'RABBITMQ' | 'SQS';
 
+export type ExecutionMode = 'SIMULATED' | 'REAL';
+
 export type Scenario = {
   id: string;
   name: string;
@@ -24,6 +26,7 @@ export type Scenario = {
   visibilityTimeoutSeconds: number | null;
   dlqEnabled: boolean;
   burstEnabled: boolean;
+  executionMode: ExecutionMode;
   createdAt: string;
   updatedAt: string;
 };

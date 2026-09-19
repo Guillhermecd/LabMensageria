@@ -38,6 +38,9 @@ public class SimulationRunService {
     @Transactional
     public RunSummaryResponse runInstant(String ownerEmail, UUID scenarioId, Long requestedSeed) {
         Scenario scenario = findOwnedScenario(ownerEmail, scenarioId);
+        if (scenario.getExecutionMode() == com.bimd.msgsim.domain.model.ExecutionMode.REAL) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "execution=REAL requires mode=LIVE");
+        }
         SimulationRun run = createRun(scenario, RunMode.INSTANT, requestedSeed);
 
         SimulationState state = engine.runToCompletion(scenario, run.getSeed());

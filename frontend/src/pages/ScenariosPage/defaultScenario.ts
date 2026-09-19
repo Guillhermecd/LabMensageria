@@ -15,4 +15,5 @@ export const defaultScenario: ScenarioFormValues = {
   visibilityTimeoutSeconds: null,
   dlqEnabled: true,
   burstEnabled: false,
+  executionMode: 'SIMULATED',
 };

@@ -18,6 +18,13 @@ export function useScenarioForm(
   }, [scenario]);
 
   const broker = form.watch('broker');
+
+  useEffect(() => {
+    if (broker !== 'RABBITMQ' && form.getValues('executionMode') === 'REAL') {
+      form.setValue('executionMode', 'SIMULATED');
+    }
+  }, [broker, form]);
+
   const submit = form.handleSubmit(onSubmit);
 
   return { ...form, broker, submit };

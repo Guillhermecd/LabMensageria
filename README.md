@@ -51,6 +51,7 @@ O projeto é objeto de estudo — cada fase do `PLAN.md` deixou uma explicação
 | 05 | [`docs/05-tradeoff-report.md`](docs/05-tradeoff-report.md) | Modelo analítico M/M/c simplificado, pontuação de trade-off |
 | 06 | [`docs/06-comparison.md`](docs/06-comparison.md) | Comparação lado a lado de dois cenários |
 | 07 | [`docs/07-delivery.md`](docs/07-delivery.md) | Storage (MinIO), export de relatório, histórico, retrospectiva |
+| 08 | [`docs/08-real-brokers.md`](docs/08-real-brokers.md) | Execução real contra RabbitMQ (ports and adapters), simulado × real |
 
 Decisões que atravessam mais de uma fase estão em `docs/adr/` (Architecture Decision Records). Termos do domínio (backlog, lag, DLQ, visibility timeout, p95...) estão em `docs/glossary.md`.
 

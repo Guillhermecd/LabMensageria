@@ -1,6 +1,7 @@
 package com.bimd.msgsim.domain.dto;
 
 import com.bimd.msgsim.domain.model.BrokerType;
+import com.bimd.msgsim.domain.model.ExecutionMode;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -21,6 +22,7 @@ public record ScenarioResponse(
         Integer visibilityTimeoutSeconds,
         boolean dlqEnabled,
         boolean burstEnabled,
+        ExecutionMode executionMode,
         Instant createdAt,
         Instant updatedAt) {
 }

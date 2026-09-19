@@ -4,7 +4,7 @@ import {
   PlayCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Typography } from 'antd';
+import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Tag, Typography } from 'antd';
 import { useRef } from 'react';
 import { BacklogChart } from './BacklogChart';
 import { ConclusionPanel } from './ConclusionPanel';
@@ -46,6 +46,7 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
   const exportRef = useRef<HTMLDivElement>(null);
 
   const hasResult = !!(scenario && run && ticks.length > 0);
+  const isReal = scenario?.executionMode === 'REAL';
   const isLiveRunning = running && live;
   const isInstantLoading = running && !live && ticks.length === 0;
   const lastSecond = ticks[ticks.length - 1]?.second ?? -1;
@@ -68,9 +69,14 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
         align="center"
         style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}
       >
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Relatório {scenario ? `— ${scenario.name}` : ''}
-        </Typography.Title>
+        <Space align="center">
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Relatório {scenario ? `— ${scenario.name}` : ''}
+          </Typography.Title>
+          {scenario && (
+            <Tag color={isReal ? 'volcano' : 'blue'}>{isReal ? 'Real' : 'Simulado'}</Tag>
+          )}
+        </Space>
         <Space>
           {isLiveRunning ? (
             <Button danger icon={<PauseCircleOutlined />} onClick={stopLive}>
@@ -89,17 +95,19 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
                 loading={running}
                 disabled={!scenario}
               >
-                Rodar ao vivo
+                {isReal ? 'Rodar (RabbitMQ real)' : 'Rodar ao vivo'}
               </Button>
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={runInstant}
-                loading={running}
-                disabled={!scenario}
-              >
-                Resultado instantâneo
-              </Button>
+              {!isReal && (
+                <Button
+                  type="primary"
+                  icon={<PlayCircleOutlined />}
+                  onClick={runInstant}
+                  loading={running}
+                  disabled={!scenario}
+                >
+                  Resultado instantâneo
+                </Button>
+              )}
             </>
           )}
         </Space>

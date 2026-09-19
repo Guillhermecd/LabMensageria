@@ -127,6 +127,27 @@ export function ScenarioForm({ scenario, saving, onSubmit }: ScenarioFormProps) 
         />
       </Form.Item>
 
+      <Form.Item label={<HelpLabel label="Execução" tip={scenarioFieldTips.executionMode} />}>
+        <Controller
+          name="executionMode"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <Switch
+              checked={value === 'REAL'}
+              disabled={broker !== 'RABBITMQ'}
+              checkedChildren="Real"
+              unCheckedChildren="Simulado"
+              onChange={(checked) => onChange(checked ? 'REAL' : 'SIMULATED')}
+            />
+          )}
+        />
+        {broker !== 'RABBITMQ' && (
+          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.65 }}>
+            Execução real só está disponível para RabbitMQ.
+          </div>
+        )}
+      </Form.Item>
+
       <Button type="primary" htmlType="submit" loading={saving} block>
         Salvar cenário
       </Button>
