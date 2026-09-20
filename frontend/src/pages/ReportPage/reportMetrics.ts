@@ -20,11 +20,24 @@ function max(ticks: Tick[], key: keyof Tick): number {
   return Math.max(...ticks.map((tick) => tick[key] as number));
 }
 
-export function buildKpis(scenario: Scenario, run: RunSummary, ticks: Tick[]): Kpi[] {
-  const last = ticks[ticks.length - 1];
+/** Mirrors RunStatistics.warmupSeconds on the backend: the empty-queue start is excluded from stats. */
+export function warmupSeconds(durationSeconds: number): number {
+  return Math.min(Math.max(5, Math.floor(durationSeconds / 10)), Math.floor(durationSeconds / 2));
+}
+
+export function buildKpis(scenario: Scenario, run: RunSummary, allTicks: Tick[]): Kpi[] {
+  const warmup = warmupSeconds(scenario.durationSeconds);
+  const steady = allTicks.filter((tick) => tick.second >= warmup);
+  // while a live run is still inside the warm-up window there is nothing steady to summarise yet
+  const ticks = steady.length > 0 ? steady : allTicks;
+  const last = allTicks[allTicks.length - 1];
   const util = average(ticks, 'utilization');
   const backlogMax = max(ticks, 'backlog');
   const capacity = average(ticks, 'capacity');
+  const consumedSum = ticks.reduce((sum, tick) => sum + tick.consumed, 0);
+  const failedSum = ticks.reduce((sum, tick) => sum + tick.failed, 0);
+  const usefulShare = consumedSum + failedSum > 0 ? consumedSum / (consumedSum + failedSum) : 1;
+  const usefulCapacity = capacity * usefulShare;
   const lossPct =
     run.producedTotal > 0 ? ((run.dlqTotal + run.droppedTotal) / run.producedTotal) * 100 : 0;
   const ratio = capacity > 0 ? scenario.ratePerSecond / capacity : 0;
@@ -39,10 +52,10 @@ export function buildKpis(scenario: Scenario, run: RunSummary, ticks: Tick[]): K
     },
     {
       label: 'Latência p50 / p95',
-      value: `${last?.p50Ms ?? 0} / ${last?.p95Ms ?? 0}`,
-      sub: `p99 ${last?.p99Ms ?? 0} ms · final`,
-      tone: last && last.p95Ms > 1000 ? 'warning' : undefined,
-      tip: 'Tempo de publicar até concluir. p50: metade das mensagens é mais rápida que isso. p95/p99: os 5%/1% mais lentos, onde espera na fila e retries aparecem.',
+      value: `${Math.round(average(ticks, 'p50Ms'))} / ${Math.round(average(ticks, 'p95Ms'))}`,
+      sub: `p99 ${Math.round(average(ticks, 'p99Ms'))} ms · média sem aquecimento`,
+      tone: average(ticks, 'p95Ms') > 1000 ? 'warning' : undefined,
+      tip: `Tempo de publicar até concluir, em média ao longo da execução, sem os primeiros ${warmup}s (aquecimento: a fila começa vazia e a latência inicial é otimista). p50: metade das mensagens é mais rápida que isso. p95/p99: os 5%/1% mais lentos, onde espera na fila e retries aparecem. Uma única execução é uma amostra: use “Rodar N rodadas” para ver a faixa.`,
     },
     {
       label: 'Backlog atual',
@@ -75,6 +88,13 @@ export function buildKpis(scenario: Scenario, run: RunSummary, ticks: Tick[]): K
       tip: 'Fração do tempo em que os consumidores estão ocupados. Acima de ~80% qualquer pico vira backlog; 100% = saturado.',
     },
     {
+      label: 'Capacidade bruta × útil',
+      value: `${Math.round(capacity)} → ${Math.round(usefulCapacity)}/s`,
+      sub: `${Math.round((1 - usefulShare) * 100)}% gasto em tentativas que falharam`,
+      tone: usefulShare < 0.9 ? 'warning' : undefined,
+      tip: 'Bruta: consumidores × 1000/tempo de serviço. Útil: descontando o slot ocupado por tentativas que falham e serão repetidas. Com taxa de falha alta a capacidade real fica bem abaixo da bruta.',
+    },
+    {
       label: 'Capacidade × carga',
       value: `${ratio.toFixed(2)}×`,
       sub: ratio > 1 ? 'carga acima da capacidade' : `folga de ${Math.round((1 - ratio) * 100)}%`,
@@ -82,4 +102,9 @@ export function buildKpis(scenario: Scenario, run: RunSummary, ticks: Tick[]): K
       tip: 'Produção dividida pela capacidade média dos consumidores. Acima de 1× o sistema é instável: a fila cresce sem limite.',
     },
   ];
+}
+
+/** Grey band over the warm-up window, shared by the time-series charts. */
+export function warmupBand(warmup: number) {
+  return [{ type: 'rangeX', data: [[0, warmup]], style: { fill: '#8B939E', fillOpacity: 0.15 } }];
 }

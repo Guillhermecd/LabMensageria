@@ -3,6 +3,7 @@ package com.bimd.msgsim.service.simulation;
 import com.bimd.msgsim.domain.model.BrokerType;
 import com.bimd.msgsim.domain.model.EventType;
 import com.bimd.msgsim.domain.model.Scenario;
+import com.bimd.msgsim.domain.model.ServiceProfile;
 import com.bimd.msgsim.service.simulation.broker.BrokerBehavior;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -32,7 +33,11 @@ public class SimulationEngine {
     }
 
     public SimulationState runToCompletion(Scenario scenario, long seed) {
-        SimulationState state = newState(seed);
+        return runToCompletion(scenario, seed, Disturbance.NONE);
+    }
+
+    public SimulationState runToCompletion(Scenario scenario, long seed, Disturbance disturbance) {
+        SimulationState state = new SimulationState(seed, disturbance);
         while (!state.isDone()) {
             step(state, scenario);
         }
@@ -45,9 +50,18 @@ public class SimulationEngine {
         int duration = scenario.getDurationSeconds();
         boolean burst = scenario.isBurstEnabled() && t > duration * 0.42 && t < duration * 0.57;
 
+        Disturbance disturbance = sim.disturbance;
+        double load = burst ? 3 : disturbance.spikeAt(t, duration) ? disturbance.spikeMultiplier() : 1;
         int produced = (int) Math.round(
-                scenario.getRatePerSecond() * (burst ? 3 : 1) * (0.85 + sim.random.nextDouble() * 0.3));
+                scenario.getRatePerSecond() * load * (0.85 + sim.random.nextDouble() * 0.3));
         int effectiveConsumers = behavior.effectiveConsumers(scenario);
+        if (disturbance.outageAt(t, duration)) {
+            int outageStart = (int) (duration * Disturbance.OUTAGE_START);
+            boolean rebalancing = t < outageStart + behavior.failoverPauseSeconds();
+            effectiveConsumers = rebalancing
+                    ? 0
+                    : Math.min(effectiveConsumers, Math.max(0, scenario.getConsumers() - disturbance.consumersLost()));
+        }
         double capacity = effectiveConsumers * (1000.0 / Math.max(1, scenario.getProcessingMs()))
                 * (0.9 + sim.random.nextDouble() * 0.2);
 
@@ -100,14 +114,24 @@ public class SimulationEngine {
         detectLag(sim, t, scenario);
         detectBurst(sim, t, burst, duration);
 
-        double wait = capacity > 0 ? (Math.min(carried, before) / capacity) * 1000 : 0;
+        // Backlog wait (fluid) plus the queueing delay that exists even without a backlog: with random
+        // arrivals and variable service time, messages wait behind each other well below saturation.
+        ServiceProfile profile = scenario.getServiceProfile();
+        sim.stallSeconds = capacity > 0 ? 0 : sim.stallSeconds + 1;
+        double fluidWait = capacity > 0
+                ? (Math.min(carried, before) / capacity) * 1000
+                : sim.stallSeconds * 1000.0;
+        double queueingWait = capacity > 0
+                ? profile.queueingWaitMs(produced / capacity, effectiveConsumers, scenario.getProcessingMs())
+                : 0;
+        double wait = fluidWait + queueingWait;
         int overhead = behavior.latencyOverheadMs();
         int processingMs = scenario.getProcessingMs();
         double p50 = processingMs + wait * 0.6 + overhead;
-        double p95 = processingMs * 1.9 + wait * 1.1
+        double p95 = processingMs * profile.p95Factor() + wait * 1.1
                 + (retried > 0 ? (retried / (double) Math.max(1, attempts)) * processingMs * 10
                         + visibilityDelay * 1000.0 * failureRate : 0);
-        double p99 = processingMs * 2.8 + wait * 1.4
+        double p99 = processingMs * profile.p99Factor() + wait * 1.4
                 + (failed / (double) Math.max(1, attempts)) * (visibilityDelay * 1000.0 + processingMs * 20);
 
         sim.getTicks().add(new TickResult(

@@ -11,6 +11,12 @@ const BROKER_OPTIONS = [
   { value: 'SQS', label: 'SQS / SNS' },
 ];
 
+const SERVICE_PROFILE_OPTIONS = [
+  { value: 'CONSTANT', label: 'Constante (melhor caso)' },
+  { value: 'EXPONENTIAL', label: 'Exponencial (realista)' },
+  { value: 'HEAVY_TAIL', label: 'Cauda longa (5% a 10×)' },
+];
+
 type ScenarioFormProps = {
   scenario: Scenario | null;
   saving: boolean;
@@ -54,6 +60,15 @@ export function ScenarioForm({ scenario, saving, onSubmit }: ScenarioFormProps) 
         label="Processamento (ms)"
         tip={scenarioFieldTips.processingMs}
       />
+      <Form.Item label={<HelpLabel label="Variação do serviço" tip={scenarioFieldTips.serviceProfile} />}>
+        <Controller
+          name="serviceProfile"
+          control={control}
+          render={({ field }) => (
+            <Select {...field} options={SERVICE_PROFILE_OPTIONS} style={{ width: '100%' }} />
+          )}
+        />
+      </Form.Item>
       <NumberField
         control={control}
         name="failurePct"

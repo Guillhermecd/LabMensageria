@@ -16,4 +16,5 @@ export const defaultScenario: ScenarioFormValues = {
   dlqEnabled: true,
   burstEnabled: false,
   executionMode: 'SIMULATED',
+  serviceProfile: 'EXPONENTIAL',
 };

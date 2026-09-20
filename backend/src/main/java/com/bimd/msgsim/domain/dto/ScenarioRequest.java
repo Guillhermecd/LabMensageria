@@ -2,6 +2,7 @@ package com.bimd.msgsim.domain.dto;
 
 import com.bimd.msgsim.domain.model.BrokerType;
 import com.bimd.msgsim.domain.model.ExecutionMode;
+import com.bimd.msgsim.domain.model.ServiceProfile;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -24,5 +25,6 @@ public record ScenarioRequest(
         Integer visibilityTimeoutSeconds,
         boolean dlqEnabled,
         boolean burstEnabled,
-        @NotNull ExecutionMode executionMode) {
+        @NotNull ExecutionMode executionMode,
+        @NotNull ServiceProfile serviceProfile) {
 }

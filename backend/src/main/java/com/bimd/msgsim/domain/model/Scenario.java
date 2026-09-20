@@ -81,6 +81,10 @@ public class Scenario {
     @Column(name = "execution_mode", nullable = false)
     private ExecutionMode executionMode = ExecutionMode.SIMULATED;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_profile", nullable = false)
+    private ServiceProfile serviceProfile = ServiceProfile.EXPONENTIAL;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

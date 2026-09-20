@@ -75,6 +75,7 @@ public class ScenarioService {
         copy.setDlqEnabled(source.isDlqEnabled());
         copy.setBurstEnabled(source.isBurstEnabled());
         copy.setExecutionMode(source.getExecutionMode());
+        copy.setServiceProfile(source.getServiceProfile());
         scenarioRepository.save(copy);
         return scenarioMapper.toResponse(copy);
     }

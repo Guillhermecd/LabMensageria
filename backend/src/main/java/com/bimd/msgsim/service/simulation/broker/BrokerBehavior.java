@@ -24,6 +24,14 @@ public interface BrokerBehavior {
     /** Fixed per-message latency overhead used in the p50/p95/p99 estimate. */
     int latencyOverheadMs();
 
+    /**
+     * Seconds all consumption stops when a consumer leaves the group. Kafka rebalances the whole
+     * group (eager assignment); RabbitMQ and SQS simply redeliver to the remaining consumers.
+     */
+    default int failoverPauseSeconds() {
+        return 0;
+    }
+
     /** Message shown the first time a message reaches the DLQ for this run. */
     String firstDlqMessage();
 

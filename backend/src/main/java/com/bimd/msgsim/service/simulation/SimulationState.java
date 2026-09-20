@@ -12,6 +12,7 @@ import java.util.Random;
 public class SimulationState {
 
     final Random random;
+    final Disturbance disturbance;
     final List<TickResult> ticks = new ArrayList<>();
     final List<EventResult> events = new ArrayList<>();
     final List<RetryBucket> retryBuckets = new ArrayList<>();
@@ -31,8 +32,15 @@ public class SimulationState {
     boolean burstEnd;
     boolean done;
     int t;
+    /** Consecutive seconds with zero consumption capacity: messages queued in that span all wait it out. */
+    int stallSeconds;
 
     public SimulationState(long seed) {
+        this(seed, Disturbance.NONE);
+    }
+
+    public SimulationState(long seed, Disturbance disturbance) {
+        this.disturbance = disturbance;
         this.random = new Random(seed);
     }
 

@@ -1,6 +1,10 @@
 package com.bimd.msgsim.controller;
 
+import com.bimd.msgsim.domain.dto.BatchSummaryResponse;
 import com.bimd.msgsim.domain.dto.CompareResponse;
+import com.bimd.msgsim.domain.dto.DecisionResponse;
+import com.bimd.msgsim.domain.dto.SuiteResponse;
+import com.bimd.msgsim.domain.dto.SweepResponse;
 import com.bimd.msgsim.domain.dto.EventResponse;
 import com.bimd.msgsim.domain.dto.ReportResponse;
 import com.bimd.msgsim.domain.dto.RunSummaryResponse;
@@ -10,7 +14,12 @@ import com.bimd.msgsim.domain.model.RunMode;
 import com.bimd.msgsim.domain.model.SimulationRun;
 import com.bimd.msgsim.service.real.RealSimulationService;
 import com.bimd.msgsim.service.report.CompareService;
+import com.bimd.msgsim.service.report.DecisionService;
+import com.bimd.msgsim.service.report.ScoreWeights;
+import com.bimd.msgsim.service.report.SuiteService;
+import com.bimd.msgsim.service.report.SweepService;
 import com.bimd.msgsim.service.report.ReportQueryService;
+import com.bimd.msgsim.service.simulation.BatchService;
 import com.bimd.msgsim.service.simulation.LiveSimulationService;
 import com.bimd.msgsim.service.simulation.SimulationRunService;
 import java.util.List;
@@ -36,6 +45,10 @@ public class RunController {
     private final RealSimulationService realSimulationService;
     private final ReportQueryService reportQueryService;
     private final CompareService compareService;
+    private final BatchService batchService;
+    private final DecisionService decisionService;
+    private final SuiteService suiteService;
+    private final SweepService sweepService;
 
     @PostMapping("/api/scenarios/{scenarioId}/runs")
     public ResponseEntity<RunSummaryResponse> createRun(
@@ -47,6 +60,57 @@ public class RunController {
                 ? runService.createLiveRun(principal.getUsername(), scenarioId, seed)
                 : runService.runInstant(principal.getUsername(), scenarioId, seed);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/api/scenarios/{scenarioId}/batches")
+    public BatchSummaryResponse createBatch(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID scenarioId,
+            @RequestParam(defaultValue = "30") int rounds,
+            @RequestParam(required = false) Long seed) {
+        return batchService.run(principal.getUsername(), scenarioId, rounds, seed);
+    }
+
+    /** Weights are relative (rescaled to sum to 1); omitted ones fall back to the defaults. */
+    @GetMapping("/api/scenarios/{scenarioId}/decision")
+    public DecisionResponse decision(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID scenarioId,
+            @RequestParam(defaultValue = "30") int rounds,
+            @RequestParam(required = false) Long seed,
+            @RequestParam(defaultValue = "0.35") double stability,
+            @RequestParam(defaultValue = "0.25") double latency,
+            @RequestParam(defaultValue = "0.20") double loss,
+            @RequestParam(defaultValue = "0.10") double cost,
+            @RequestParam(defaultValue = "0.10") double ops) {
+        return decisionService.decide(
+                principal.getUsername(), scenarioId, new ScoreWeights(stability, latency, loss, cost, ops), rounds, seed);
+    }
+
+    /** Broker x scenario matrix (healthy, half the consumers down, 2x spike, 10% failures). */
+    @GetMapping("/api/scenarios/{scenarioId}/suite")
+    public SuiteResponse suite(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID scenarioId,
+            @RequestParam(defaultValue = "20") int rounds,
+            @RequestParam(required = false) Long seed,
+            @RequestParam(defaultValue = "0.35") double stability,
+            @RequestParam(defaultValue = "0.25") double latency,
+            @RequestParam(defaultValue = "0.20") double loss,
+            @RequestParam(defaultValue = "0.10") double cost,
+            @RequestParam(defaultValue = "0.10") double ops) {
+        return suiteService.run(
+                principal.getUsername(), scenarioId, new ScoreWeights(stability, latency, loss, cost, ops), rounds, seed);
+    }
+
+    /** p99 versus occupancy (50/75/90/95% of each broker's capacity). */
+    @GetMapping("/api/scenarios/{scenarioId}/sweep")
+    public SweepResponse sweep(
+            @AuthenticationPrincipal UserDetails principal,
+            @PathVariable UUID scenarioId,
+            @RequestParam(defaultValue = "20") int rounds,
+            @RequestParam(required = false) Long seed) {
+        return sweepService.run(principal.getUsername(), scenarioId, rounds, seed);
     }
 
     @GetMapping("/api/runs/{runId}")

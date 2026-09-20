@@ -25,6 +25,8 @@ export const scenarioFieldTips = {
     'Dead-letter queue: destino das mensagens que esgotaram os retries. Evita que mensagens ruins (poison pill) circulem para sempre.',
   burstEnabled:
     'Simula um burst: a produção triplica por um trecho. Serve para observar como o backlog cresce e quanto tempo leva para drenar.',
+  serviceProfile:
+    'Como o tempo de processamento varia em torno da média. Constante é o melhor caso possível (espera ~metade da exponencial); exponencial é o padrão realista; cauda longa simula 5% das mensagens levando 10× mais (GC, banco travando). A média é a mesma, mas a latência p99 muda bastante.',
   executionMode:
     'Simulado: motor matemático, instantâneo, qualquer broker. Real: publica de verdade em um RabbitMQ (único broker com adaptador real), com limites de taxa/duração para não sobrecarregar a máquina.',
 } as const;

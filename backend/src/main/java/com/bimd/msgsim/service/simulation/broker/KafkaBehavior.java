@@ -35,6 +35,11 @@ public class KafkaBehavior implements BrokerBehavior {
     }
 
     @Override
+    public int failoverPauseSeconds() {
+        return 6;
+    }
+
+    @Override
     public int latencyOverheadMs() {
         return 5;
     }

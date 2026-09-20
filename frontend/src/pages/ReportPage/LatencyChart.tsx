@@ -2,12 +2,14 @@ import { Line } from '@ant-design/plots';
 import { Card, Typography } from 'antd';
 import { HelpLabel } from '../../components/ui/HelpLabel';
 import { useTheme } from '../../hooks/useTheme';
-import type { Tick } from '../../api/modules/types';
+import type { Scenario, Tick } from '../../api/modules/types';
+import { warmupBand, warmupSeconds } from './reportMetrics';
 
 const SERIES_COLOR = { p50: '#22D3A0', p95: '#F5A524', p99: '#FF6B4A' };
 
-export function LatencyChart({ ticks }: { ticks: Tick[] }) {
+export function LatencyChart({ scenario, ticks }: { scenario: Scenario; ticks: Tick[] }) {
   const { mode } = useTheme();
+  const warmup = warmupSeconds(scenario.durationSeconds);
   const data = ticks.flatMap((tick) => [
     { second: tick.second, series: 'p50', value: tick.p50Ms },
     { second: tick.second, series: 'p95', value: tick.p95Ms },
@@ -38,7 +40,13 @@ export function LatencyChart({ ticks }: { ticks: Tick[] }) {
           }}
           height={220}
           axis={{ x: { title: 'segundo' }, y: { title: 'ms' } }}
+          annotations={warmupBand(warmup)}
         />
+      )}
+      {ticks.length > 0 && (
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          Faixa cinza: aquecimento (0–{warmup}s), fora das métricas — a fila ainda começa vazia.
+        </Typography.Text>
       )}
     </Card>
   );

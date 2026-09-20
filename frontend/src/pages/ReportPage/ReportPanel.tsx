@@ -9,6 +9,10 @@ import { useRef } from 'react';
 import { BacklogChart } from './BacklogChart';
 import { ConclusionPanel } from './ConclusionPanel';
 import { ConsumerUtilization } from './ConsumerUtilization';
+import { BatchPanel } from './BatchPanel';
+import { DecisionPanel } from './DecisionPanel';
+import { SuitePanel } from './SuitePanel';
+import { SweepPanel } from './SweepPanel';
 import { EventTimeline } from './EventTimeline';
 import { HelpLabel } from '../../components/ui/HelpLabel';
 import { useTheme } from '../../hooks/useTheme';
@@ -101,7 +105,7 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
                 <Button
                   type="primary"
                   icon={<PlayCircleOutlined />}
-                  onClick={runInstant}
+                  onClick={() => runInstant()}
                   loading={running}
                   disabled={!scenario}
                 >
@@ -133,6 +137,34 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
         />
       )}
 
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <BatchPanel
+            scenarioId={scenarioId}
+            disabled={running}
+            onReplay={(seed) => runInstant(seed)}
+          />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <DecisionPanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <SuitePanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <SweepPanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
       {isLiveRunning && (
         <Progress percent={progressPct} status="active" style={{ marginBottom: 16 }} />
       )}
@@ -141,10 +173,6 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
 
       {!running && !hasResult && !error && (
         <Empty description="Clique em “Resultado instantâneo” ou “Rodar ao vivo” para gerar o relatório deste cenário." />
-      )}
-
-      {history.length > 0 && (
-        <RunHistory history={history} activeRunId={run?.id ?? null} onReopen={reopen} />
       )}
 
       <div ref={exportRef} style={{ background: config.token?.colorBgLayout }}>
@@ -174,7 +202,7 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
               </Row>
               <Row gutter={[16, 16]}>
                 <Col xs={24} xl={12}>
-                  <LatencyChart ticks={ticks} />
+                  <LatencyChart scenario={scenario} ticks={ticks} />
                 </Col>
                 <Col xs={24} xl={12}>
                   <ConsumerUtilization scenario={scenario} ticks={ticks} />
@@ -206,6 +234,12 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
           )}
         </Space>
       </div>
+
+      {history.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <RunHistory history={history} activeRunId={run?.id ?? null} onReopen={reopen} />
+        </div>
+      )}
     </div>
   );
 }

@@ -7,24 +7,18 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Scores Kafka/RabbitMQ/SQS against each other for the same scenario. The weights are
- * named constants, not magic numbers, because the score is the one number the report's
- * conclusion leans on — anyone reading this later needs to see what "best" means.
+ * Scores Kafka/RabbitMQ/SQS against each other for the same scenario, analytically. The weights and
+ * formula live in {@link ScoreWeights} and {@link ScoreCalculator}, because the score is the one number the
+ * report leans on: anyone reading this later needs to see what "best" means.
  */
 @Service
 @RequiredArgsConstructor
 public class BrokerTradeoffService {
-
-    private static final double STABILITY_WEIGHT = 0.35;
-    private static final double LATENCY_WEIGHT = 0.25;
-    private static final double LOSS_WEIGHT = 0.20;
-    private static final double COST_WEIGHT = 0.10;
-    private static final double OPS_WEIGHT = 0.10;
-    private static final double MAX_ACCEPTABLE_LOSS_PCT = 5.0;
 
     private final AnalyticalQueueModel model;
 
@@ -38,28 +32,14 @@ public class BrokerTradeoffService {
                 .map(broker -> model.compute(scenario, broker))
                 .toList();
 
-        double[] stability = models.stream()
-                .mapToDouble(m -> m.stable() ? 1 - Math.min(1, m.ratio()) * 0.5 : 0)
-                .toArray();
-        double[] p50s = models.stream().mapToDouble(BrokerModel::p50Ms).toArray();
-        double[] costs = models.stream().mapToDouble(BrokerModel::cost).toArray();
+        Map<BrokerType, ScoreCalculator.Points> points = ScoreCalculator.score(
+                models.stream().map(BrokerTradeoffService::inputs).toList(), ScoreWeights.DEFAULT);
 
         record Scored(BrokerModel model, int score) {
         }
-        List<Scored> scored = new ArrayList<>();
-        for (int i = 0; i < models.size(); i++) {
-            BrokerModel m = models.get(i);
-            double latencyNorm = normalizeInverted(m.p50Ms(), p50s);
-            double lossNorm = 1 - Math.min(1, m.lossPct() / MAX_ACCEPTABLE_LOSS_PCT);
-            double costNorm = normalizeInverted(m.cost(), costs);
-            int score = (int) Math.round(100 * (
-                    STABILITY_WEIGHT * stability[i]
-                            + LATENCY_WEIGHT * latencyNorm
-                            + LOSS_WEIGHT * lossNorm
-                            + COST_WEIGHT * costNorm
-                            + OPS_WEIGHT * m.opsScore()));
-            scored.add(new Scored(m, score));
-        }
+        List<Scored> scored = models.stream()
+                .map(m -> new Scored(m, (int) Math.round(points.get(m.broker()).total())))
+                .toList();
 
         Scored bestScored = scored.stream().max(Comparator.comparingInt(Scored::score)).orElseThrow();
         List<BrokerScore> rows = scored.stream()
@@ -72,11 +52,11 @@ public class BrokerTradeoffService {
         return new TradeoffResult(rows, best);
     }
 
-    private double normalizeInverted(double value, double[] all) {
-        double min = Arrays.stream(all).min().orElse(0);
-        double max = Arrays.stream(all).max().orElse(0);
-        if (max == min) return 1;
-        return 1 - (value - min) / (max - min);
+    /** Raw score inputs of an analytical estimate; shared with the simulation-backed decision. */
+    static ScoreCalculator.Inputs inputs(BrokerModel m) {
+        return new ScoreCalculator.Inputs(
+                m.broker(), ScoreCalculator.stability(m.stable(), m.ratio()), m.p99Ms(), m.lossPct(), m.cost(),
+                m.opsScore());
     }
 
     private List<String> pros(BrokerModel m) {
