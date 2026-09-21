@@ -23,16 +23,26 @@ import org.springframework.stereotype.Service;
 public class SuiteService {
 
     private final DecisionService decisionService;
+    private final AnalyticalQueueModel model;
 
     public SuiteResponse run(String ownerEmail, UUID scenarioId, ScoreWeights weights, int rounds, Long requestedSeed) {
         Scenario base = decisionService.ownedSimulatedScenario(ownerEmail, scenarioId, rounds);
         long masterSeed = DecisionService.resolveSeed(requestedSeed);
+        return run(base, weights, rounds, masterSeed);
+    }
+
+    SuiteResponse run(Scenario base, ScoreWeights weights, int rounds, long masterSeed) {
+        // one reference capacity for every broker: the base broker's parallelism / service time
+        double capacity = model.compute(base, base.getBroker()).capacity();
 
         List<VariantResult> variants = new ArrayList<>();
         for (ScenarioVariant variant : ScenarioVariant.values()) {
+            Scenario loaded = variant.apply(base, capacity);
             DecisionResponse decision = decisionService.decide(
-                    variant.apply(base), weights, rounds, masterSeed, variant.disturbance(base));
-            variants.add(new VariantResult(variant.name(), variant.label(), decision));
+                    loaded, weights, rounds, masterSeed, variant.disturbance(base));
+            variants.add(new VariantResult(
+                    variant.name(), variant.label(), variant.occupancyPct(), loaded.getRatePerSecond(),
+                    variant.detail(base), decision));
         }
         return summarize(variants);
     }

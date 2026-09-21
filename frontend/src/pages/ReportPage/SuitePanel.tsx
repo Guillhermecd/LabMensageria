@@ -1,5 +1,5 @@
 import { AppstoreOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
 import { RunService } from '../../api/modules/run.service';
 import type { Broker, BrokerDecision, Suite, SuiteVariant } from '../../api/modules/types';
@@ -58,7 +58,7 @@ export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disab
       title={
         <HelpLabel
           label="Broker × cenário"
-          tip={`Roda o mesmo cenário em quatro situações (saudável, metade dos consumidores cai, pico de 2× na produção, 10% de falha), com ${ROUNDS} rodadas por célula. É quando algo quebra que os brokers deixam de empatar. Suposição do modelo: o Kafka para todo o consumo por ~6s ao rebalancear quando um consumidor sai; RabbitMQ e SQS redistribuem sem pausa.`}
+          tip={`Roda o mesmo cenário em cinco situações (saudável, metade dos consumidores cai, pico de 2× na produção, 10% de falha, sobrecarga 5×), com ${ROUNDS} rodadas por célula. Cada cenário declara uma ocupação alvo, não uma taxa: a taxa exibida é ocupação × capacidade do broker escolhido no formulário, então a taxa do formulário não interfere aqui. É quando algo quebra que os brokers deixam de empatar. Suposição do modelo: o Kafka para todo o consumo por ~6s ao rebalancear quando um consumidor sai; RabbitMQ e SQS redistribuem sem pausa.`}
         />
       }
       extra={
@@ -87,7 +87,19 @@ export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disab
             dataSource={suite.variants}
             scroll={{ x: true }}
             columns={[
-              { title: 'Cenário', dataIndex: 'label' },
+              {
+                title: 'Cenário',
+                render: (_: unknown, row: SuiteVariant) => (
+                  <Tooltip title={row.detail}>
+                    <span>
+                      {row.label}{' '}
+                      <Typography.Text type="secondary">
+                        · {row.ratePerSecond.toLocaleString('pt-BR')} msg/s ({row.occupancyPct}%)
+                      </Typography.Text>
+                    </span>
+                  </Tooltip>
+                ),
+              },
               ...BROKERS.map((b) => ({
                 title: b.label,
                 render: (_: unknown, row: SuiteVariant) => cell(row, b.key),

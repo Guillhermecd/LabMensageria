@@ -135,3 +135,17 @@ O avanço por tick de 1 s foi substituído por uma fila de eventos futuros (min-
 - Retenção e high watermark valem 256 MB por padrão de propósito: com os valores de produção (dias de log, GB de memória) uma simulação de 120 s nunca os atingiria. O tamanho da mensagem entra na conta (`MB × 1024 ÷ KB`).
 - Prefetch: eficiência = `serviço ÷ (serviço + 2 ms ÷ prefetch)`; com prefetch alto é ~1, com prefetch 1 o consumidor espera uma entrega por mensagem. É uma aproximação, não o protocolo.
 - Tentativas: ao esgotar `maxRetries`, a mensagem vai para a DLQ; sem DLQ é descartada (contada como descartada).
+
+## 9. Cenários por ocupação (Etapa 3)
+
+Cada variante da suíte declara uma **ocupação alvo**; a taxa é `ocupação × capacidade`, com capacidade = `parallelism × 1000 ÷ processingMs` do broker escolhido no formulário (o mesmo número para os três brokers, para que recebam a mesma carga). A taxa do formulário não entra na suíte, então "Saudável" continua saudável mesmo com o formulário em sobrecarga.
+
+| Variante | Ocupação | Perturbação |
+|---|---|---|
+| Saudável | 70% | — |
+| Metade dos consumidores cai | 70% | metade dos consumidores sai a 50% da corrida e volta a 75% |
+| Pico de 2× | 70% | produção ×2 por 15% da corrida (janela explícita), a partir de 50% |
+| Falha de 10% | 70% | taxa de falha ≥ 10% |
+| Sobrecarga 5× | 500% | — |
+
+`SuiteResponse.VariantResult` devolve `occupancyPct`, `ratePerSecond` e `detail`; a UI mostra a taxa calculada ao lado do nome. A queda de consumidores passou de 40–60% para 50–75% da corrida (começa no meio, como pedido), e o pico deixou de ser um recorte fixo 42–57% para ser `Disturbance.spikeSeconds`.

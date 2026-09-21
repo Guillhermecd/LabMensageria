@@ -63,7 +63,7 @@ class SuiteAndSweepTest {
         Scenario base = scenario(BrokerType.RABBITMQ, 100, 4, 15);
 
         for (ScenarioVariant variant : ScenarioVariant.values()) {
-            var decision = decisions.decide(variant.apply(base), ScoreWeights.DEFAULT, 10, 3L, variant.disturbance(base));
+            var decision = decisions.decide(variant.apply(base, capacityOf(base)), ScoreWeights.DEFAULT, 10, 3L, variant.disturbance(base));
 
             assertThat(decision.brokers()).hasSize(3);
         }
@@ -73,7 +73,7 @@ class SuiteAndSweepTest {
     void should_reportKafkaWorseWorstCaseThanRabbit_when_consumerDown() {
         Scenario base = scenario(BrokerType.RABBITMQ, 100, 4, 15);
         var decision = decisions.decide(
-                ScenarioVariant.CONSUMER_DOWN.apply(base), ScoreWeights.DEFAULT, 20, 3L,
+                ScenarioVariant.CONSUMER_DOWN.apply(base, capacityOf(base)), ScoreWeights.DEFAULT, 20, 3L,
                 ScenarioVariant.CONSUMER_DOWN.disturbance(base));
 
         BrokerDecision kafka = byBroker(decision.brokers(), BrokerType.KAFKA);
@@ -91,8 +91,8 @@ class SuiteAndSweepTest {
         var broken = decisions.decide(unstable, ScoreWeights.DEFAULT, 10, 3L);
 
         var suite = SuiteService.summarize(List.of(
-                new com.bimd.msgsim.domain.dto.SuiteResponse.VariantResult("A", "a", forceLeader(healthy, BrokerType.RABBITMQ)),
-                new com.bimd.msgsim.domain.dto.SuiteResponse.VariantResult("B", "b", forceLeader(broken, BrokerType.SQS))));
+                new com.bimd.msgsim.domain.dto.SuiteResponse.VariantResult("A", "a", 70, 100, "", forceLeader(healthy, BrokerType.RABBITMQ)),
+                new com.bimd.msgsim.domain.dto.SuiteResponse.VariantResult("B", "b", 70, 100, "", forceLeader(broken, BrokerType.SQS))));
 
         assertThat(suite.leaderChanges()).isTrue();
     }
@@ -122,6 +122,48 @@ class SuiteAndSweepTest {
 
     private static double peakBacklog(SimulationState state) {
         return state.getTicks().stream().mapToDouble(TickResult::backlog).max().orElse(0);
+    }
+
+    private double capacityOf(Scenario scenario) {
+        return model.compute(scenario, scenario.getBroker()).capacity();
+    }
+
+    @Test
+    void should_deriveRateFromOccupancy_when_buildingVariants() {
+        Scenario base = scenario(BrokerType.RABBITMQ, 5000, 4, 15); // form rate is a 19x overload
+        double capacity = capacityOf(base);
+
+        assertThat(ScenarioVariant.HEALTHY.apply(base, capacity).getRatePerSecond())
+                .isEqualTo((int) Math.round(capacity * 0.70));
+        assertThat(ScenarioVariant.OVERLOAD_5X.apply(base, capacity).getRatePerSecond())
+                .isEqualTo((int) Math.round(capacity * 5));
+        assertThat(ScenarioVariant.SPIKE_2X.apply(base, capacity).getRatePerSecond())
+                .isEqualTo(ScenarioVariant.HEALTHY.apply(base, capacity).getRatePerSecond());
+    }
+
+    @Test
+    void should_keepHealthyVariantHealthy_when_formRateIsAnOverload() {
+        Scenario base = scenario(BrokerType.RABBITMQ, 5000, 4, 15);
+        SuiteService suites = new SuiteService(decisions, model);
+
+        var suite = suites.run(base, ScoreWeights.DEFAULT, 5, 3L);
+        var healthy = suite.variants().stream().filter(v -> v.variant().equals("HEALTHY")).findFirst().orElseThrow();
+        var overload = suite.variants().stream().filter(v -> v.variant().equals("OVERLOAD_5X")).findFirst().orElseThrow();
+
+        assertThat(healthy.ratePerSecond()).isLessThan(base.getRatePerSecond());
+        assertThat(healthy.decision().brokers()).allSatisfy(b -> assertThat(b.peakBacklogMedian()).isLessThan(healthy.ratePerSecond() * 2.0));
+        assertThat((double) overload.ratePerSecond()).isCloseTo(capacityOf(base) * 5, org.assertj.core.data.Offset.offset(1.0));
+        assertThat(suite.variants()).hasSize(ScenarioVariant.values().length);
+    }
+
+    @Test
+    void should_limitTheSpikeToAnExplicitWindow_when_variantIsSpike() {
+        int duration = 100;
+        Disturbance spike = new Disturbance(0, 2.0);
+
+        long spiking = java.util.stream.IntStream.range(0, duration).filter(s -> spike.spikeAt(s, duration)).count();
+
+        assertThat(spiking).isEqualTo(Disturbance.spikeSeconds(duration)).isLessThan(duration / 2);
     }
 
     private Scenario scenario(BrokerType broker, int rate, int consumers, int processingMs) {

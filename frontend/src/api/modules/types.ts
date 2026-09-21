@@ -203,7 +203,14 @@ export type CompareResult = {
 };
 
 
-export type SuiteVariant = { variant: string; label: string; decision: Decision };
+export type SuiteVariant = {
+  variant: string;
+  label: string;
+  occupancyPct: number;
+  ratePerSecond: number;
+  detail: string;
+  decision: Decision;
+};
 
 export type Suite = { variants: SuiteVariant[]; leaderChanges: boolean; summary: string };
 
