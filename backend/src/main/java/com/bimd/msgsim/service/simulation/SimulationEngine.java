@@ -3,6 +3,7 @@ package com.bimd.msgsim.service.simulation;
 import com.bimd.msgsim.domain.model.BrokerType;
 import com.bimd.msgsim.domain.model.EventType;
 import com.bimd.msgsim.domain.model.Scenario;
+import com.bimd.msgsim.service.simulation.broker.Admission;
 import com.bimd.msgsim.service.simulation.broker.BrokerBehavior;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -63,12 +64,12 @@ public class SimulationEngine {
             SimEvent event = sim.heap.poll();
             advanceClock(sim, event.timeMs);
             switch (event.kind) {
-                case ARRIVAL -> onArrival(sim, scenario);
+                case ARRIVAL -> onArrival(sim, scenario, behavior);
                 case COMPLETION -> onCompletion(sim, scenario, behavior, event);
                 case REAPPEAR -> {
                     sim.retryPending--;
                     sim.waiting.add(event.arrivalMs, event.failures);
-                    dispatch(sim, scenario);
+                    dispatch(sim, scenario, behavior);
                 }
                 case SWEEP -> {
                     closeSecond(sim, scenario, behavior);
@@ -80,7 +81,8 @@ public class SimulationEngine {
 
     private void start(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
         sim.started = true;
-        sim.servers = serversAt(sim, scenario, behavior, 0);
+        sim.consumerCap = consumerCapAt(sim, scenario, behavior, 0);
+        sim.servers = currentServers(sim, scenario, behavior);
         schedule(sim, SimEvent.Kind.SWEEP, 1000, 0, 0);
         scheduleNextArrival(sim, scenario, 0);
     }
@@ -93,13 +95,43 @@ public class SimulationEngine {
         sim.nowMs = toMs;
     }
 
-    private void onArrival(SimulationState sim, Scenario scenario) {
-        sim.produced++;
-        sim.arrivalsSecond++;
-        sim.inSystem++;
-        sim.waiting.add(sim.nowMs, 0);
+    private void onArrival(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
+        switch (behavior.admit(sim, scenario)) {
+            case BLOCK_PRODUCER -> {
+                // The producer stops publishing: no arrival is scheduled until the backlog falls.
+                sim.producerBlocked = true;
+                sim.blockedSinceMs = sim.nowMs;
+                if (!sim.blockSeen) {
+                    sim.blockSeen = true;
+                    sim.addEvent(new EventResult((int) (sim.nowMs / 1000), EventType.QUEUE_FULL,
+                            "Fila acima do limite de memória: o broker bloqueou o produtor (nada é descartado)."));
+                }
+                return;
+            }
+            case REJECT -> {
+                sim.produced++;
+                sim.arrivalsSecond++;
+                sim.dropped++;
+                sim.droppedSecond++;
+            }
+            case ACCEPT -> {
+                sim.produced++;
+                sim.arrivalsSecond++;
+                sim.inSystem++;
+                sim.waiting.add(sim.nowMs, 0);
+            }
+        }
         scheduleNextArrival(sim, scenario, sim.nowMs);
-        dispatch(sim, scenario);
+        dispatch(sim, scenario, behavior);
+    }
+
+    /** A blocked producer resumes as soon as the broker would accept a message again. */
+    private void resumeProducerIfPossible(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
+        if (sim.producerBlocked && behavior.admit(sim, scenario) == Admission.ACCEPT) {
+            sim.producerBlocked = false;
+            sim.blockedMs += sim.nowMs - sim.blockedSinceMs;
+            scheduleNextArrival(sim, scenario, sim.nowMs);
+        }
     }
 
     private void onCompletion(SimulationState sim, Scenario scenario, BrokerBehavior behavior, SimEvent event) {
@@ -116,30 +148,43 @@ public class SimulationEngine {
         } else {
             sim.failedSecond++;
             int failures = event.failures + 1;
-            if (scenario.isDlqEnabled() && failures > scenario.getMaxRetries()) {
-                sim.dlq++;
+            if (failures > scenario.getMaxRetries()) {
+                // Retries exhausted: dead-letter it, or discard it when there is no DLQ.
                 sim.inSystem--;
                 sim.sojournSum += sim.nowMs - event.arrivalMs;
-                if (!sim.dlqSeen) {
-                    sim.dlqSeen = true;
-                    sim.addEvent(new EventResult((int) (sim.nowMs / 1000), EventType.FIRST_DLQ, behavior.firstDlqMessage()));
+                if (scenario.isDlqEnabled()) {
+                    sim.dlq++;
+                    if (!sim.dlqSeen) {
+                        sim.dlqSeen = true;
+                        sim.addEvent(new EventResult(
+                                (int) (sim.nowMs / 1000), EventType.FIRST_DLQ, behavior.firstDlqMessage()));
+                    }
+                } else {
+                    sim.dropped++;
+                    sim.droppedSecond++;
                 }
             } else {
                 sim.retries++;
-                int delaySeconds = behavior.retryDelaySeconds(scenario);
-                if (delaySeconds > 0) {
+                long delayMs = behavior.retryDelayMs(sim, scenario, failures);
+                if (delayMs > 0) {
                     sim.retryPending++;
-                    schedule(sim, SimEvent.Kind.REAPPEAR, sim.nowMs + delaySeconds * 1000.0, event.arrivalMs, failures);
+                    schedule(sim, SimEvent.Kind.REAPPEAR, sim.nowMs + delayMs, event.arrivalMs, failures);
                 } else {
                     sim.waiting.add(event.arrivalMs, failures);
                 }
             }
         }
-        dispatch(sim, scenario);
+        resumeProducerIfPossible(sim, scenario, behavior);
+        dispatch(sim, scenario, behavior);
+    }
+
+    private int currentServers(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
+        return Math.max(0, Math.min(behavior.parallelism(sim, scenario), sim.consumerCap));
     }
 
     /** Starts service for waiting messages while a consumer is free. */
-    private void dispatch(SimulationState sim, Scenario scenario) {
+    private void dispatch(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
+        sim.servers = currentServers(sim, scenario, behavior);
         while (sim.busy < sim.servers && sim.waiting.size() > 0) {
             double arrival = sim.waiting.poll();
             int failures = sim.waiting.lastFailures();
@@ -194,24 +239,23 @@ public class SimulationEngine {
         return scenario.isBurstEnabled() && second > duration * 0.42 && second < duration * 0.57;
     }
 
-    private int serversAt(SimulationState sim, Scenario scenario, BrokerBehavior behavior, int second) {
+    /** Consumers a scripted outage leaves alive in this second (unbounded when there is none). */
+    private int consumerCapAt(SimulationState sim, Scenario scenario, BrokerBehavior behavior, int second) {
         int duration = scenario.getDurationSeconds();
-        int effective = behavior.effectiveConsumers(scenario);
-        if (sim.disturbance.outageAt(second, duration)) {
-            int outageStart = (int) (duration * Disturbance.OUTAGE_START);
-            boolean rebalancing = second < outageStart + behavior.failoverPauseSeconds();
-            return rebalancing
-                    ? 0
-                    : Math.min(effective, Math.max(0, scenario.getConsumers() - sim.disturbance.consumersLost()));
+        if (!sim.disturbance.outageAt(second, duration)) {
+            return Integer.MAX_VALUE;
         }
-        return effective;
+        int outageStart = (int) (duration * Disturbance.OUTAGE_START);
+        boolean rebalancing = second < outageStart + behavior.failoverPauseSeconds();
+        return rebalancing ? 0 : Math.max(0, scenario.getConsumers() - sim.disturbance.consumersLost());
     }
 
     /** The sweep at a one-second boundary: aging/overflow, the tick record, detectors, next second's capacity. */
     private void closeSecond(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
         int second = sim.t;
         int duration = scenario.getDurationSeconds();
-        behavior.applyOverflow(sim, scenario, second);
+        behavior.sweep(sim, scenario, second);
+        resumeProducerIfPossible(sim, scenario, behavior);
 
         double capacity = sim.servers * 1000.0 / Math.max(1, scenario.getProcessingMs());
         double util = sim.servers > 0 ? Math.min(1, sim.busyMsSecond / (sim.servers * 1000.0)) : 0;
@@ -256,9 +300,9 @@ public class SimulationEngine {
             sim.addEvent(new EventResult(duration, EventType.FINISHED, "Simulação encerrada. " + remaining));
             checkInvariants(sim, duration * 1000.0);
         } else {
-            sim.servers = serversAt(sim, scenario, behavior, sim.t);
+            sim.consumerCap = consumerCapAt(sim, scenario, behavior, sim.t);
             schedule(sim, SimEvent.Kind.SWEEP, (sim.t + 1) * 1000.0, 0, 0);
-            dispatch(sim, scenario);
+            dispatch(sim, scenario, behavior);
         }
     }
 

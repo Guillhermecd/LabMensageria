@@ -71,6 +71,21 @@ public class Scenario {
     @Column(name = "visibility_timeout_seconds")
     private Integer visibilityTimeoutSeconds;
 
+    @Column(name = "retention_hours")
+    private Integer retentionHours;
+
+    @Column(name = "retention_mb")
+    private Integer retentionMb;
+
+    @Column(name = "high_watermark_mb")
+    private Integer highWatermarkMb;
+
+    @Column(name = "prefetch")
+    private Integer prefetch;
+
+    @Column(name = "inflight_max")
+    private Integer inflightMax;
+
     @Column(name = "dlq_enabled", nullable = false)
     private boolean dlqEnabled = true;
 

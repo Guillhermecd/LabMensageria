@@ -25,6 +25,11 @@ export type Scenario = {
   queueCapacity: number | null;
   partitions: number | null;
   visibilityTimeoutSeconds: number | null;
+  retentionHours: number | null;
+  retentionMb: number | null;
+  highWatermarkMb: number | null;
+  prefetch: number | null;
+  inflightMax: number | null;
   dlqEnabled: boolean;
   burstEnabled: boolean;
   executionMode: ExecutionMode;

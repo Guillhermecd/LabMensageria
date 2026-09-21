@@ -8,12 +8,18 @@ import com.bimd.msgsim.service.simulation.SimulationState;
 import org.springframework.stereotype.Component;
 
 /**
- * RabbitMQ semantics: a queue with {@code max-length} drops the oldest messages once
- * full (overflow policy {@code drop-head}). Every other broker keeps this class
- * untouched — that's the point of keeping one class per broker (Open/Closed).
+ * RabbitMQ semantics: above the memory high watermark the broker blocks publishers, so the backlog
+ * stabilises instead of growing and nothing is dropped; every consumer can read the queue, with
+ * prefetch bounding how many unacknowledged messages each holds; a nack requeues at once. There is
+ * no TTL by default — only an explicit {@code max-length} (drop-head) removes messages.
  */
 @Component
 public class RabbitMqBehavior implements BrokerBehavior {
+
+    static final int DEFAULT_HIGH_WATERMARK_MB = 256;
+    static final int DEFAULT_PREFETCH = 250;
+    /** Round trip a consumer waits for the next delivery once its prefetch window is empty. */
+    static final double DELIVERY_ROUND_TRIP_MS = 2.0;
 
     @Override
     public BrokerType type() {
@@ -21,12 +27,39 @@ public class RabbitMqBehavior implements BrokerBehavior {
     }
 
     @Override
-    public int effectiveConsumers(Scenario scenario) {
-        return scenario.getConsumers();
+    public Admission admit(SimulationState state, Scenario scenario) {
+        int watermarkMb = scenario.getHighWatermarkMb() != null
+                ? scenario.getHighWatermarkMb()
+                : DEFAULT_HIGH_WATERMARK_MB;
+        return state.getQueue() >= BrokerBehavior.messagesThatFit(scenario, watermarkMb)
+                ? Admission.BLOCK_PRODUCER
+                : Admission.ACCEPT;
     }
 
     @Override
-    public int applyOverflow(SimulationState state, Scenario scenario, int second) {
+    public int parallelism(SimulationState state, Scenario scenario) {
+        return effectiveConsumers(scenario);
+    }
+
+    /**
+     * Every consumer works, but with a small prefetch it idles a delivery round trip per
+     * {@code prefetch} messages: efficiency = service / (service + roundTrip / prefetch).
+     */
+    @Override
+    public int effectiveConsumers(Scenario scenario) {
+        int prefetch = scenario.getPrefetch() != null ? scenario.getPrefetch() : DEFAULT_PREFETCH;
+        double service = Math.max(1, scenario.getProcessingMs());
+        double efficiency = service / (service + DELIVERY_ROUND_TRIP_MS / Math.max(1, prefetch));
+        return Math.max(1, (int) Math.round(scenario.getConsumers() * efficiency));
+    }
+
+    @Override
+    public long retryDelayMs(SimulationState state, Scenario scenario, int failures) {
+        return 0;
+    }
+
+    @Override
+    public int sweep(SimulationState state, Scenario scenario, int second) {
         Integer capacity = scenario.getQueueCapacity();
         if (capacity == null || capacity <= 0 || state.getQueue() <= capacity) {
             return 0;
@@ -40,11 +73,6 @@ public class RabbitMqBehavior implements BrokerBehavior {
                     "Fila atingiu a capacidade (" + capacity + "). Mensagens começaram a ser descartadas (overflow)."));
         }
         return dropped;
-    }
-
-    @Override
-    public int retryDelaySeconds(Scenario scenario) {
-        return 0;
     }
 
     @Override

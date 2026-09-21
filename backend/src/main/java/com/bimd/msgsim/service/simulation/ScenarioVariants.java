@@ -27,6 +27,11 @@ public final class ScenarioVariants {
         copy.setQueueCapacity(source.getQueueCapacity());
         copy.setPartitions(source.getPartitions());
         copy.setVisibilityTimeoutSeconds(source.getVisibilityTimeoutSeconds());
+        copy.setRetentionHours(source.getRetentionHours());
+        copy.setRetentionMb(source.getRetentionMb());
+        copy.setHighWatermarkMb(source.getHighWatermarkMb());
+        copy.setPrefetch(source.getPrefetch());
+        copy.setInflightMax(source.getInflightMax());
         copy.setDlqEnabled(source.isDlqEnabled());
         copy.setBurstEnabled(source.isBurstEnabled());
         copy.setExecutionMode(source.getExecutionMode());

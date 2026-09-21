@@ -21,8 +21,18 @@ export const scenarioFieldTips = {
     'Limite de mensagens na fila (max-length). Ao encher, as mais antigas são descartadas. 0 = sem limite.',
   visibilityTimeoutSeconds:
     'No SQS, após ser lida a mensagem fica invisível por esse tempo; se não for confirmada (delete), reaparece para retry.',
+  retentionMb:
+    'Kafka: tamanho do log retido. Quando o backlog × tamanho da mensagem passa disso, os registros mais antigos são apagados antes de serem consumidos (perda). Padrão em escala reduzida para a duração curta da simulação.',
+  retentionHours:
+    'Kafka: idade máxima de um registro no log (padrão 168 h = 7 dias). Mais antigo que isso é apagado.',
+  highWatermarkMb:
+    'RabbitMQ: quando a fila passa desse volume de memória, o broker bloqueia o produtor até o backlog cair. Nada é descartado, mas a produção é freada. Padrão em escala reduzida para a duração curta da simulação.',
+  prefetch:
+    'RabbitMQ: mensagens não confirmadas que cada consumidor pode reter. Com prefetch baixo o consumidor espera uma nova entrega a cada mensagem e perde capacidade.',
+  inflightMax:
+    'SQS: teto de mensagens em processamento ou invisíveis (aguardando retry) ao mesmo tempo. Ao esgotar, ninguém consegue receber novas mensagens (padrão 120.000).',
   dlqEnabled:
-    'Dead-letter queue: destino das mensagens que esgotaram os retries. Evita que mensagens ruins (poison pill) circulem para sempre.',
+    'Dead-letter queue: destino das mensagens que esgotaram os retries. Evita que mensagens ruins (poison pill) circulem para sempre. Sem DLQ, a mensagem é descartada ao esgotar as tentativas.',
   burstEnabled:
     'Simula um burst: a produção triplica por um trecho. Serve para observar como o backlog cresce e quanto tempo leva para drenar.',
   serviceProfile:

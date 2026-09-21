@@ -120,3 +120,18 @@ O avanço por tick de 1 s foi substituído por uma fila de eventos futuros (min-
 - **Invariantes em toda simulação:** conservação `produzidas = entregues + pendentes + descartadas + dlq` (lança `IllegalStateException` se falhar) e lei de Little (`L = λ·W`, com L pela integral exata no tempo; aviso em `SimulationState.getWarnings()` e no log se o erro passar de 2%).
 - **Calibração:** `SimulationEngineTest.should_matchErlangC_when_arrivalsAndServiceAreExponential` compara a espera média com a fórmula de Erlang-C (M/M/c) em 30/50/70/85% de ocupação, tolerância de 5%.
 - **Limite conhecido:** só mensagens entregues entram nas latências; em saturação o backlog ainda não servido não aparece nelas (tratado na Etapa 4, modo saturado).
+
+## 8. Comportamento por broker (Etapa 2)
+
+`BrokerBehavior` agora tem quatro pontos de decisão; o resto do motor é genérico. Parâmetros nulos no cenário caem nos padrões abaixo, então o mesmo cenário roda contra os três brokers.
+
+| | admit | parallelism | retryDelayMs | sweep |
+|---|---|---|---|---|
+| Kafka | sempre aceita (append) | `min(consumidores, partições)` (padrão 6) | 0 (offset não avança) | apaga os mais antigos se `fila × tamanho` > retenção (256 MB) ou idade > 168 h |
+| RabbitMQ | `BLOCK_PRODUCER` acima do high watermark (256 MB); nada é descartado | consumidores ajustados pelo prefetch (250) | 0 (nack) | vazio, salvo `queueCapacity` (max-length drop-head) explícito |
+| SQS | sempre aceita | `min(consumidores, in-flight máx − ocultas)` (120000) | visibility timeout (30 s) | retenção de 4 dias |
+
+- `BLOCK_PRODUCER` não perde mensagem: o motor deixa de agendar chegadas e retoma quando o broker voltaria a aceitar. O tempo bloqueado fica em `SimulationState.getBlockedSeconds()`.
+- Retenção e high watermark valem 256 MB por padrão de propósito: com os valores de produção (dias de log, GB de memória) uma simulação de 120 s nunca os atingiria. O tamanho da mensagem entra na conta (`MB × 1024 ÷ KB`).
+- Prefetch: eficiência = `serviço ÷ (serviço + 2 ms ÷ prefetch)`; com prefetch alto é ~1, com prefetch 1 o consumidor espera uma entrega por mensagem. É uma aproximação, não o protocolo.
+- Tentativas: ao esgotar `maxRetries`, a mensagem vai para a DLQ; sem DLQ é descartada (contada como descartada).

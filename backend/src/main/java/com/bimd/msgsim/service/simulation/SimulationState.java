@@ -34,6 +34,11 @@ public class SimulationState {
     boolean started;
     int busy;
     int servers;
+    /** Upper bound on consumers imposed by a scripted outage (MAX_VALUE when none). */
+    int consumerCap = Integer.MAX_VALUE;
+    boolean producerBlocked;
+    double blockedSinceMs;
+    double blockedMs;
     /** Messages that failed and are hidden until their retry delay elapses. */
     int retryPending;
     /** Messages currently inside the system (waiting + in service + hidden), integrated for Little's law. */
@@ -63,6 +68,7 @@ public class SimulationState {
     boolean saturated;
     boolean dlqSeen;
     boolean dropSeen;
+    boolean blockSeen;
     boolean lagWarn;
     boolean burstSeen;
     boolean burstEnd;
@@ -96,6 +102,30 @@ public class SimulationState {
         dropped += removed;
         droppedSecond += removed;
         return removed;
+    }
+
+    /** Drops waiting messages older than {@code ageMs} (aging sweep); returns how many. */
+    public int dropOlderThan(double ageMs) {
+        double cutoff = nowMs - ageMs;
+        int removed = 0;
+        while (waiting.size() > 0 && waiting.peekArrival() < cutoff) {
+            sojournSum += nowMs - waiting.poll();
+            removed++;
+        }
+        inSystem -= removed;
+        dropped += removed;
+        droppedSecond += removed;
+        return removed;
+    }
+
+    /** Failed messages hidden until their retry delay elapses (SQS in-flight, not yet visible). */
+    public int getHiddenRetries() {
+        return retryPending;
+    }
+
+    /** Seconds the producer spent blocked by the broker so far. */
+    public double getBlockedSeconds() {
+        return (blockedMs + (producerBlocked ? nowMs - blockedSinceMs : 0)) / 1000.0;
     }
 
     public boolean isDropSeen() {

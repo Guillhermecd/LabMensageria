@@ -22,8 +22,20 @@ public class ScenarioValidator {
             case RABBITMQ -> requireNonNegative(request.queueCapacity(), "queueCapacity", BrokerType.RABBITMQ);
             case SQS -> requirePositive(request.visibilityTimeoutSeconds(), "visibilityTimeoutSeconds", BrokerType.SQS);
         }
+        optionalPositive(request.retentionHours(), "retentionHours");
+        optionalPositive(request.retentionMb(), "retentionMb");
+        optionalPositive(request.highWatermarkMb(), "highWatermarkMb");
+        optionalPositive(request.prefetch(), "prefetch");
+        optionalPositive(request.inflightMax(), "inflightMax");
         if (request.executionMode() == ExecutionMode.REAL) {
             validateRealExecution(request);
+        }
+    }
+
+    /** Broker-specific tuning is optional: null falls back to the broker's default. */
+    private void optionalPositive(Integer value, String field) {
+        if (value != null && value < 1) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, field + " must be >= 1 when informed");
         }
     }
 

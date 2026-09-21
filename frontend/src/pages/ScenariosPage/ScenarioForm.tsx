@@ -97,29 +97,76 @@ export function ScenarioForm({ scenario, saving, onSubmit }: ScenarioFormProps) 
       />
 
       {broker === 'KAFKA' && (
-        <NumberField
-          control={control}
-          name="partitions"
-          label="Partições"
-          tip={scenarioFieldTips.partitions}
-        />
+        <>
+          <NumberField
+            control={control}
+            name="partitions"
+            label="Partições"
+            tip={scenarioFieldTips.partitions}
+          />
+          <NumberField
+            control={control}
+            name="retentionMb"
+            label="Retenção por tamanho (MB)"
+            tip={scenarioFieldTips.retentionMb}
+            min={1}
+            placeholder="256"
+          />
+          <NumberField
+            control={control}
+            name="retentionHours"
+            label="Retenção por tempo (h)"
+            tip={scenarioFieldTips.retentionHours}
+            min={1}
+            placeholder="168"
+          />
+        </>
       )}
       {broker === 'RABBITMQ' && (
-        <NumberField
-          control={control}
-          name="queueCapacity"
-          label="Capacidade da fila"
-          tip={scenarioFieldTips.queueCapacity}
-          min={0}
-        />
+        <>
+          <NumberField
+            control={control}
+            name="highWatermarkMb"
+            label="High watermark (MB)"
+            tip={scenarioFieldTips.highWatermarkMb}
+            min={1}
+            placeholder="256"
+          />
+          <NumberField
+            control={control}
+            name="prefetch"
+            label="Prefetch"
+            tip={scenarioFieldTips.prefetch}
+            min={1}
+            placeholder="250"
+          />
+          <NumberField
+            control={control}
+            name="queueCapacity"
+            label="Capacidade da fila (max-length)"
+            tip={scenarioFieldTips.queueCapacity}
+            min={0}
+          />
+        </>
       )}
       {broker === 'SQS' && (
-        <NumberField
-          control={control}
-          name="visibilityTimeoutSeconds"
-          label="Visibility timeout (s)"
-          tip={scenarioFieldTips.visibilityTimeoutSeconds}
-        />
+        <>
+          <NumberField
+            control={control}
+            name="visibilityTimeoutSeconds"
+            label="Visibility timeout (s)"
+            tip={scenarioFieldTips.visibilityTimeoutSeconds}
+            min={1}
+          />
+          <NumberField
+            control={control}
+            name="inflightMax"
+            label="In-flight máximo"
+            tip={scenarioFieldTips.inflightMax}
+            min={1}
+            placeholder="120000"
+          />
+        </>
       )}
 
       <Form.Item label={<HelpLabel label="DLQ habilitada" tip={scenarioFieldTips.dlqEnabled} />}>
@@ -177,9 +224,10 @@ type NumberFieldProps = {
   tip: string;
   min?: number;
   max?: number;
+  placeholder?: string;
 };
 
-function NumberField({ control, name, label, tip, min, max }: NumberFieldProps) {
+function NumberField({ control, name, label, tip, min, max, placeholder }: NumberFieldProps) {
   return (
     <Form.Item label={<HelpLabel label={label} tip={tip} />}>
       <Controller
@@ -191,6 +239,7 @@ function NumberField({ control, name, label, tip, min, max }: NumberFieldProps) 
             value={field.value as number | null}
             min={min}
             max={max}
+            placeholder={placeholder}
             style={{ width: '100%' }}
           />
         )}
