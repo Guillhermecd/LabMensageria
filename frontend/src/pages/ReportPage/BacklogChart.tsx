@@ -3,6 +3,7 @@ import { Card, Typography } from 'antd';
 import { HelpLabel } from '../../components/ui/HelpLabel';
 import { useTheme } from '../../hooks/useTheme';
 import type { Scenario, Tick } from '../../api/modules/types';
+import { warmupBand, warmupSeconds } from './reportMetrics';
 
 export function BacklogChart({ scenario, ticks }: { scenario: Scenario; ticks: Tick[] }) {
   const { mode } = useTheme();
@@ -33,6 +34,7 @@ export function BacklogChart({ scenario, ticks }: { scenario: Scenario; ticks: T
             axis={{ x: { title: 'segundo' }, y: { title: 'mensagens' } }}
             style={{ stroke: '#F5A524' }}
             area={{ style: { fillOpacity: 0.15 } }}
+            annotations={warmupBand(warmupSeconds(scenario.durationSeconds))}
           />
           {hasQueueLimit && (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>

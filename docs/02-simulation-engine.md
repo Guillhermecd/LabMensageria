@@ -107,3 +107,45 @@ curl -s http://localhost:1337/api/runs/$RUN_ID/events -H "Authorization: Bearer 
 - Testado ao vivo com seed fixa (42): 30 ticks, `producedTotal=5995`, `deliveredTotal=5993`, `retriesTotal=63`, evento `FINISHED` com backlog residual — bateu com o esperado pra um cenário Kafka saudável (folga de capacidade, poucas falhas).
 - Erro de schema: mapeei `double` em Java esperando `NUMERIC(10,2)` no Postgres, mas o Hibernate valida `double` como `float8`/`double precision`, não `numeric`. `ddl-auto=validate` pegou a divergência no boot (`Schema-validation: wrong column type`) — corrigido trocando `NUMERIC` por `DOUBLE PRECISION` na migration. Lição: ao mapear `double`/`Double` em Java, a coluna Postgres correspondente é `double precision`, não `numeric`.
 - `SimulationState` package-private com getters/setters pontuais para os campos que `BrokerBehavior` precisa tocar (`queue`, `dropped`, `dropSeen`, eventos) é mais simples do que abrir a classe inteira como pública — só RabbitMQ precisa mutar a fila de fora do engine.
+
+## 7. Motor por eventos discretos (Etapa 1 do plano de confiabilidade)
+
+O avanço por tick de 1 s foi substituído por uma fila de eventos futuros (min-heap) ordenada por instante em ms. O relógio salta para o próximo evento; `step()` continua avançando até a próxima fronteira de 1 s e emitindo um `TickResult` (é a unidade do stream ao vivo e da série persistida).
+
+- **Eventos:** `ARRIVAL` (chegada Poisson, taxa por segundo seguindo burst/pico), `COMPLETION` (fim de serviço; sorteia falha), `REAPPEAR` (retry com atraso, ex.: visibility timeout do SQS) e `SWEEP` (varredura a cada segundo: overflow do broker, fechamento do tick, capacidade do próximo segundo). Empates no mesmo instante: conclusão, reaparecimento, chegada, varredura.
+- **Cada mensagem é rastreada**, então p50/p95/p99 são percentis de latência reais (espera + serviço + overhead do broker), não fórmulas. `RunStatistics` usa o conjunto de mensagens entregues após o warmup.
+- **Três streams de RNG** (chegadas, tempo de serviço, falhas) derivados de uma seed via `SplittableRandom.split()`. Mudar a taxa de falha não altera as chegadas; dois brokers com a mesma seed recebem as mesmas mensagens nos mesmos instantes.
+- **Variação do serviço** de verdade: `CONSTANT` (tempo fixo), `EXPONENTIAL` (média `processingMs`) e `HEAVY_TAIL` (5% das mensagens a 10× a média; as demais encurtadas para manter a média).
+- **Tentativas:** uma mensagem que falha é reenfileirada até `maxRetries` novas tentativas; ao esgotar, vai para a DLQ (se `dlqEnabled`; sem DLQ continua tentando).
+- **Invariantes em toda simulação:** conservação `produzidas = entregues + pendentes + descartadas + dlq` (lança `IllegalStateException` se falhar) e lei de Little (`L = λ·W`, com L pela integral exata no tempo; aviso em `SimulationState.getWarnings()` e no log se o erro passar de 2%).
+- **Calibração:** `SimulationEngineTest.should_matchErlangC_when_arrivalsAndServiceAreExponential` compara a espera média com a fórmula de Erlang-C (M/M/c) em 30/50/70/85% de ocupação, tolerância de 5%.
+- **Limite conhecido:** só mensagens entregues entram nas latências; em saturação o backlog ainda não servido não aparece nelas (tratado na Etapa 4, modo saturado).
+
+## 8. Comportamento por broker (Etapa 2)
+
+`BrokerBehavior` agora tem quatro pontos de decisão; o resto do motor é genérico. Parâmetros nulos no cenário caem nos padrões abaixo, então o mesmo cenário roda contra os três brokers.
+
+| | admit | parallelism | retryDelayMs | sweep |
+|---|---|---|---|---|
+| Kafka | sempre aceita (append) | `min(consumidores, partições)` (padrão 6) | 0 (offset não avança) | apaga os mais antigos se `fila × tamanho` > retenção (256 MB) ou idade > 168 h |
+| RabbitMQ | `BLOCK_PRODUCER` acima do high watermark (256 MB); nada é descartado | consumidores ajustados pelo prefetch (250) | 0 (nack) | vazio, salvo `queueCapacity` (max-length drop-head) explícito |
+| SQS | sempre aceita | `min(consumidores, in-flight máx − ocultas)` (120000) | visibility timeout (30 s) | retenção de 4 dias |
+
+- `BLOCK_PRODUCER` não perde mensagem: o motor deixa de agendar chegadas e retoma quando o broker voltaria a aceitar. O tempo bloqueado fica em `SimulationState.getBlockedSeconds()`.
+- Retenção e high watermark valem 256 MB por padrão de propósito: com os valores de produção (dias de log, GB de memória) uma simulação de 120 s nunca os atingiria. O tamanho da mensagem entra na conta (`MB × 1024 ÷ KB`).
+- Prefetch: eficiência = `serviço ÷ (serviço + 2 ms ÷ prefetch)`; com prefetch alto é ~1, com prefetch 1 o consumidor espera uma entrega por mensagem. É uma aproximação, não o protocolo.
+- Tentativas: ao esgotar `maxRetries`, a mensagem vai para a DLQ; sem DLQ é descartada (contada como descartada).
+
+## 9. Cenários por ocupação (Etapa 3)
+
+Cada variante da suíte declara uma **ocupação alvo**; a taxa é `ocupação × capacidade`, com capacidade = `parallelism × 1000 ÷ processingMs` do broker escolhido no formulário (o mesmo número para os três brokers, para que recebam a mesma carga). A taxa do formulário não entra na suíte, então "Saudável" continua saudável mesmo com o formulário em sobrecarga.
+
+| Variante | Ocupação | Perturbação |
+|---|---|---|
+| Saudável | 70% | — |
+| Metade dos consumidores cai | 70% | metade dos consumidores sai a 50% da corrida e volta a 75% |
+| Pico de 2× | 70% | produção ×2 por 15% da corrida (janela explícita), a partir de 50% |
+| Falha de 10% | 70% | taxa de falha ≥ 10% |
+| Sobrecarga 5× | 500% | — |
+
+`SuiteResponse.VariantResult` devolve `occupancyPct`, `ratePerSecond` e `detail`; a UI mostra a taxa calculada ao lado do nome. A queda de consumidores passou de 40–60% para 50–75% da corrida (começa no meio, como pedido), e o pico deixou de ser um recorte fixo 42–57% para ser `Disturbance.spikeSeconds`.

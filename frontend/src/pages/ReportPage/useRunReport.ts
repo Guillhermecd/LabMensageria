@@ -69,7 +69,7 @@ export function useRunReport(scenarioId: string) {
     }
   }, []);
 
-  const runInstant = useCallback(async () => {
+  const runInstant = useCallback(async (seed?: number) => {
     closeStream();
     setError(null);
     setRunning(true);
@@ -78,7 +78,7 @@ export function useRunReport(scenarioId: string) {
     setEvents([]);
     setReport(null);
     try {
-      const summary = await RunService.runInstant(scenarioId);
+      const summary = await RunService.runInstant(scenarioId, seed);
       const [tickList, eventList] = await Promise.all([
         RunService.listTicks(summary.id),
         RunService.listEvents(summary.id),

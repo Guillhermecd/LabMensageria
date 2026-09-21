@@ -1,5 +1,25 @@
 import { api, authStorage, BASE_URL } from './api';
-import type { AnalyticalReport, CompareResult, RunSummary, SimulationEvent, Tick } from './types';
+import type {
+  AnalyticalReport,
+  BatchSummary,
+  CompareResult,
+  Decision,
+  Suite,
+  Sweep,
+  RunSummary,
+  ScoreWeights,
+  SimulationEvent,
+  Tick,
+} from './types';
+
+/** Every multi-round analysis runs this many seeds: a single run is never shown as a result. */
+export const DEFAULT_ROUNDS = 25;
+
+function roundsQuery(rounds: number, seed?: number) {
+  const query = new URLSearchParams({ rounds: String(rounds) });
+  if (seed != null) query.set('seed', String(seed));
+  return query;
+}
 
 export const RunService = {
   runInstant(scenarioId: string, seed?: number) {
@@ -9,6 +29,24 @@ export const RunService = {
   runLive(scenarioId: string, seed?: number) {
     const query = seed != null ? `?mode=LIVE&seed=${seed}` : '?mode=LIVE';
     return api<RunSummary>(`/scenarios/${scenarioId}/runs${query}`, { method: 'POST' });
+  },
+  runBatch(scenarioId: string, rounds = DEFAULT_ROUNDS, seed?: number) {
+    return api<BatchSummary>(`/scenarios/${scenarioId}/batches?${roundsQuery(rounds, seed)}`, {
+      method: 'POST',
+    });
+  },
+  decision(scenarioId: string, weights: ScoreWeights, rounds = DEFAULT_ROUNDS, seed?: number) {
+    const query = roundsQuery(rounds, seed);
+    (Object.keys(weights) as (keyof ScoreWeights)[]).forEach((key) =>
+      query.set(key, String(weights[key])),
+    );
+    return api<Decision>(`/scenarios/${scenarioId}/decision?${query}`);
+  },
+  suite(scenarioId: string, rounds = DEFAULT_ROUNDS, seed?: number) {
+    return api<Suite>(`/scenarios/${scenarioId}/suite?${roundsQuery(rounds, seed)}`);
+  },
+  sweep(scenarioId: string, rounds = DEFAULT_ROUNDS, seed?: number) {
+    return api<Sweep>(`/scenarios/${scenarioId}/sweep?${roundsQuery(rounds, seed)}`);
   },
   stop(runId: string) {
     return api<void>(`/runs/${runId}/stop`, { method: 'POST' });

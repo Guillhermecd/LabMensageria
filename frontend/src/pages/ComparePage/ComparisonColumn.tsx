@@ -19,7 +19,7 @@ export function ComparisonColumn({ report }: { report: RunReport }) {
       <KpiGrid kpis={buildKpis(scenario, run, ticks)} />
       <ThroughputChart ticks={ticks} />
       <BacklogChart scenario={scenario} ticks={ticks} />
-      <LatencyChart ticks={ticks} />
+      <LatencyChart scenario={scenario} ticks={ticks} />
       <ConsumerUtilization scenario={scenario} ticks={ticks} />
       <MessageOutcomeBar run={run} />
     </Space>

@@ -1,0 +1,1326 @@
+{
+ "capturedAt": "2026-09-21T00:38:59.488Z",
+ "commit": "89977c2",
+ "seed": 424242,
+ "note": "Pre-etapa-1 (tick engine) reference. Numbers are expected to change; use only to investigate unexpected diffs.",
+ "scenarios": {
+  "balanced-70pct": {
+   "scenario": {
+    "broker": "KAFKA",
+    "consumers": 4,
+    "processingMs": 15,
+    "failurePct": 1,
+    "maxRetries": 3,
+    "messageSizeKb": 2,
+    "durationSeconds": 120,
+    "queueCapacity": null,
+    "partitions": 6,
+    "visibilityTimeoutSeconds": null,
+    "dlqEnabled": true,
+    "burstEnabled": false,
+    "executionMode": "SIMULATED",
+    "serviceProfile": "EXPONENTIAL",
+    "name": "baseline-balanced",
+    "ratePerSecond": 186
+   },
+   "instantRun": {
+    "id": "bdfe3d7e-2e55-4b58-8af5-8e6f9bf087de",
+    "scenarioId": "ebd37895-c2e0-4c8f-8359-55b73a5a4f3e",
+    "status": "COMPLETED",
+    "mode": "INSTANT",
+    "seed": 424242,
+    "startedAt": "2026-09-21T00:38:59.581164600Z",
+    "finishedAt": "2026-09-21T00:38:59.591893500Z",
+    "producedTotal": 22051,
+    "deliveredTotal": 22049,
+    "dlqTotal": 0,
+    "droppedTotal": 0,
+    "retriesTotal": 215
+   },
+   "instantReport": {
+    "narrative": "Os produtores publicam ~186 msg/s e 4 consumidor(es) com 15 ms por mensagem conseguem processar até ~267 msg/s (0,70× de ocupação). A fila nunca acumulou mais que 3 mensagens: os consumidores acompanharam a produção e a latência p50 ficou em torno de 28 ms. Falhas geraram 215 retries. Ao final, 22,0k de 22,1k mensagens foram entregues (100,0%) e 2 ficaram pendentes.",
+    "insights": [
+     {
+      "tone": "ok",
+      "text": "Capacidade confortável: consumo 1,4× maior que a produção."
+     }
+    ],
+    "conclusion": [
+     "Para 186 msg/s com 4 consumidores a 15 ms, o modelo aponta RabbitMQ como a melhor opção (85 pts): capacidade de ~267 msg/s, latência p50 estimada em 23 ms e perda esperada de 0,00%. O cenário usa Kafka (78 pts); a diferença vem principalmente de custo ($0,008 vs $0,005).",
+     "A simulação rodada confirma o modelo: pico de backlog em 3 mensagens, 0 perdidas e p95 final de 60 ms."
+    ]
+   },
+   "decision": {
+    "rounds": 30,
+    "masterSeed": 424242,
+    "stabilityWeight": 0.35,
+    "latencyWeight": 0.25,
+    "lossWeight": 0.2,
+    "costWeight": 0.1,
+    "opsWeight": 0.1,
+    "brokers": [
+     {
+      "broker": "KAFKA",
+      "scoreMedian": 78.72864668743851,
+      "scoreLow": 78.72864668743851,
+      "scoreHigh": 78.72864668743851,
+      "points": {
+       "stability": 22.793750000000003,
+       "latency": 25,
+       "loss": 20,
+       "cost": 6.4348966874385045,
+       "ops": 4.5
+      },
+      "modelP50Ms": 25.688595238248976,
+      "simP50Ms": 28.35185185185185,
+      "modelP99Ms": 86.91403333354857,
+      "simP99Ms": 91.47222222222223,
+      "modelErrorPct": 7.188364808555445,
+      "simP99WorstMs": 93.05555555555556,
+      "peakBacklogMedian": 3,
+      "lossPctMedian": 0
+     },
+     {
+      "broker": "RABBITMQ",
+      "scoreMedian": 84.79375,
+      "scoreLow": 84.79375,
+      "scoreHigh": 84.79375,
+      "points": {
+       "stability": 22.793750000000003,
+       "latency": 25,
+       "loss": 20,
+       "cost": 10,
+       "ops": 7
+      },
+      "modelP50Ms": 22.688595238248976,
+      "simP50Ms": 25.35185185185185,
+      "modelP99Ms": 83.91403333354857,
+      "simP99Ms": 91.47222222222223,
+      "modelErrorPct": 9.384000001924118,
+      "simP99WorstMs": 93.05555555555556,
+      "peakBacklogMedian": 3,
+      "lossPctMedian": 0
+     },
+     {
+      "broker": "SQS",
+      "scoreMedian": 61.041312447549906,
+      "scoreLow": 60.894854139424005,
+      "scoreHigh": 61.16630103608565,
+      "points": {
+       "stability": 22.793750000000003,
+       "latency": 5.8750582442221875,
+       "loss": 20,
+       "cost": 2.3822099185896155,
+       "ops": 10
+      },
+      "modelP50Ms": 40.68859523824898,
+      "simP50Ms": 42.73148148148148,
+      "modelP99Ms": 1001.4640333335485,
+      "simP99Ms": 392.24074074074076,
+      "modelErrorPct": 80.04973543409432,
+      "simP99WorstMs": 403.26851851851853,
+      "peakBacklogMedian": 3,
+      "lossPctMedian": 0
+     }
+    ],
+    "tie": true,
+    "leader": "RABBITMQ",
+    "runnerUp": "KAFKA",
+    "scoreGap": 6.06510331256149,
+    "leaderWinRate": 0,
+    "decidedBy": "custo",
+    "verdict": "Empate técnico entre RABBITMQ e KAFKA: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (6,1 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+   },
+   "suite": {
+    "variants": [
+     {
+      "variant": "HEALTHY",
+      "label": "Saudável",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 78.72864668743851,
+         "scoreLow": 78.72864668743851,
+         "scoreHigh": 78.72864668743851,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 6.4348966874385045,
+          "ops": 4.5
+         },
+         "modelP50Ms": 25.688595238248976,
+         "simP50Ms": 28.40740740740741,
+         "modelP99Ms": 86.91403333354857,
+         "simP99Ms": 91.48148148148148,
+         "modelErrorPct": 7.281771538955562,
+         "simP99WorstMs": 92.95370370370371,
+         "peakBacklogMedian": 3,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 84.79375,
+         "scoreLow": 84.79375,
+         "scoreHigh": 84.79375,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 22.688595238248976,
+         "simP50Ms": 25.40740740740741,
+         "modelP99Ms": 83.91403333354857,
+         "simP99Ms": 91.48148148148148,
+         "modelErrorPct": 9.48648676707042,
+         "simP99WorstMs": 92.95370370370371,
+         "peakBacklogMedian": 3,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 61.06587097442027,
+         "scoreLow": 60.986653931530824,
+         "scoreHigh": 61.208856592125095,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 5.907176153382184,
+          "loss": 20,
+          "cost": 2.3822099185896155,
+          "ops": 10
+         },
+         "modelP50Ms": 40.68859523824898,
+         "simP50Ms": 42.75,
+         "modelP99Ms": 1001.4640333335485,
+         "simP99Ms": 388.462962962963,
+         "modelErrorPct": 81.31183825881968,
+         "simP99WorstMs": 403.26851851851853,
+         "peakBacklogMedian": 3,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "KAFKA",
+       "scoreGap": 6.06510331256149,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e KAFKA: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (6,1 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "CONSUMER_DOWN",
+      "label": "Metade dos consumidores cai",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 66.07018230731575,
+         "scoreLow": 65.27502196156075,
+         "scoreHigh": 66.90126556858999,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 12.359206429766841,
+          "loss": 20,
+          "cost": 6.4348966874385045,
+          "ops": 4.5
+         },
+         "modelP50Ms": 25.688595238248976,
+         "simP50Ms": 2026.2037037037037,
+         "modelP99Ms": 86.91403333354857,
+         "simP99Ms": 4752.916666666667,
+         "modelErrorPct": 98.45176737238512,
+         "simP99WorstMs": 5077.194444444444,
+         "peakBacklogMedian": 2061,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 84.79375,
+         "scoreLow": 84.79375,
+         "scoreHigh": 84.79375,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 22.688595238248976,
+         "simP50Ms": 1010.1018518518518,
+         "modelP99Ms": 83.91403333354857,
+         "simP99Ms": 2389.074074074074,
+         "modelErrorPct": 97.12071137889995,
+         "simP99WorstMs": 2616.740740740741,
+         "peakBacklogMedian": 1271,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 77.27184862556123,
+         "scoreLow": 76.72060583032413,
+         "scoreHigh": 77.50994549753399,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 22.02065867144203,
+          "loss": 20,
+          "cost": 2.3822099185896155,
+          "ops": 10
+         },
+         "modelP50Ms": 40.68859523824898,
+         "simP50Ms": 1037.537037037037,
+         "modelP99Ms": 1001.4640333335485,
+         "simP99Ms": 2702.8611111111113,
+         "modelErrorPct": 79.51317505489894,
+         "simP99WorstMs": 2929.1018518518517,
+         "peakBacklogMedian": 1287,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "SQS",
+       "scoreGap": 7.5219013744387695,
+       "leaderWinRate": 1,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e SQS: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 2,9 pontos, dentro do ruído. O desempate seria custo (7,5 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "SPIKE_2X",
+      "label": "Pico de 2× na produção",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 78.72864668743851,
+         "scoreLow": 78.72864668743851,
+         "scoreHigh": 78.72864668743851,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 6.4348966874385045,
+          "ops": 4.5
+         },
+         "modelP50Ms": 25.688595238248976,
+         "simP50Ms": 927.4907407407408,
+         "modelP99Ms": 86.91403333354857,
+         "simP99Ms": 2189.259259259259,
+         "modelErrorPct": 96.63014617710014,
+         "simP99WorstMs": 2763.972222222222,
+         "peakBacklogMedian": 1880,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 84.79375,
+         "scoreLow": 84.79375,
+         "scoreHigh": 84.79375,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 22.688595238248976,
+         "simP50Ms": 924.4907407407408,
+         "modelP99Ms": 83.91403333354857,
+         "simP99Ms": 2189.259259259259,
+         "modelErrorPct": 96.85642013314992,
+         "simP99WorstMs": 2763.972222222222,
+         "peakBacklogMedian": 1880,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 77.43313475423594,
+         "scoreLow": 76.99630489829275,
+         "scoreHigh": 77.74817240766141,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 22.242013677717217,
+          "loss": 20,
+          "cost": 2.3822099185896155,
+          "ops": 10
+         },
+         "modelP50Ms": 40.68859523824898,
+         "simP50Ms": 930.4629629629629,
+         "modelP99Ms": 1001.4640333335485,
+         "simP99Ms": 2453.5185185185187,
+         "modelErrorPct": 77.40479765798034,
+         "simP99WorstMs": 3035.8333333333335,
+         "peakBacklogMedian": 1871,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "KAFKA",
+       "scoreGap": 6.06510331256149,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e KAFKA: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (6,1 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "FAILURE_10",
+      "label": "Falha de 10%",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 78.72864668743851,
+         "scoreLow": 78.72864668743851,
+         "scoreHigh": 78.72864668743851,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 6.4348966874385045,
+          "ops": 4.5
+         },
+         "modelP50Ms": 25.688595238248976,
+         "simP50Ms": 70.28703703703704,
+         "modelP99Ms": 131.46403333354857,
+         "simP99Ms": 215.57407407407408,
+         "modelErrorPct": 51.234321747895706,
+         "simP99WorstMs": 222.90740740740742,
+         "peakBacklogMedian": 30,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 84.79375,
+         "scoreLow": 84.79375,
+         "scoreHigh": 84.79375,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 25,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 22.688595238248976,
+         "simP50Ms": 67.28703703703704,
+         "modelP99Ms": 128.46403333354857,
+         "simP99Ms": 215.57407407407408,
+         "modelErrorPct": 53.3446426620207,
+         "simP99WorstMs": 222.90740740740742,
+         "peakBacklogMedian": 30,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 56.797795839263664,
+         "scoreLow": 56.78675657181734,
+         "scoreHigh": 56.81861979368974,
+         "points": {
+          "stability": 22.793750000000003,
+          "latency": 1.7092846873446494,
+          "loss": 20,
+          "cost": 2.2980427984117506,
+          "ops": 10
+         },
+         "modelP50Ms": 40.68859523824898,
+         "simP50Ms": 76.48148148148148,
+         "modelP99Ms": 9141.964033333548,
+         "simP99Ms": 3167.962962962963,
+         "modelErrorPct": 117.68744308498214,
+         "simP99WorstMs": 3311.0185185185187,
+         "peakBacklogMedian": 29,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "KAFKA",
+       "scoreGap": 6.06510331256149,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e KAFKA: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (6,1 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     }
+    ],
+    "leaderChanges": false,
+    "summary": "Nenhum broker se destaca em nenhum cenário testado. Saudável: empate técnico (RABBITMQ / KAFKA); Metade dos consumidores cai: empate técnico (RABBITMQ / SQS); Pico de 2× na produção: empate técnico (RABBITMQ / KAFKA); Falha de 10%: empate técnico (RABBITMQ / KAFKA)."
+   },
+   "sweep": {
+    "rounds": 20,
+    "masterSeed": 424242,
+    "brokers": [
+     {
+      "broker": "KAFKA",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 81.11111111111111,
+        "p99P95Ms": 81.66666666666667,
+        "p99WorstMs": 81.70370370370371,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 98.11111111111111,
+        "p99P95Ms": 99.70370370370371,
+        "p99WorstMs": 100.22222222222223,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 259.7037037037037,
+        "p99P95Ms": 293.6666666666667,
+        "p99WorstMs": 310.27777777777777,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 428.3703703703704,
+        "p99P95Ms": 508.2962962962963,
+        "p99WorstMs": 555.4166666666666,
+        "peakBacklogMedian": 117
+       }
+      ]
+     },
+     {
+      "broker": "RABBITMQ",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 81.11111111111111,
+        "p99P95Ms": 81.66666666666667,
+        "p99WorstMs": 81.70370370370371,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 98.11111111111111,
+        "p99P95Ms": 99.70370370370371,
+        "p99WorstMs": 100.22222222222223,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 259.7037037037037,
+        "p99P95Ms": 293.6666666666667,
+        "p99WorstMs": 310.27777777777777,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 428.3703703703704,
+        "p99P95Ms": 508.2962962962963,
+        "p99WorstMs": 555.4166666666666,
+        "peakBacklogMedian": 117
+       }
+      ]
+     },
+     {
+      "broker": "SQS",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 365.23148148148147,
+        "p99P95Ms": 378.10185185185185,
+        "p99WorstMs": 384.75925925925924,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 398.98148148148147,
+        "p99P95Ms": 406.43518518518516,
+        "p99WorstMs": 412.44444444444446,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 553.3425925925926,
+        "p99P95Ms": 599.9907407407408,
+        "p99WorstMs": 603.6481481481482,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 720.1851851851852,
+        "p99P95Ms": 806.0648148148148,
+        "p99WorstMs": 822.5462962962963,
+        "peakBacklogMedian": 116
+       }
+      ]
+     }
+    ]
+   },
+   "tradeoffs": [
+    {
+     "broker": "KAFKA",
+     "best": false,
+     "score": 78,
+     "capacity": 266.6666666666667,
+     "ratio": 0.6974999999999999,
+     "p50Ms": 25.688595238248976,
+     "p99Ms": 86.91403333354857,
+     "backlog": 0,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.008130666666666666,
+     "pros": [
+      "Retenção em log: nada é descartado por fila cheia; dá para reprocessar.",
+      "Escala horizontal previsível via partições."
+     ],
+     "cons": [
+      "Mais peças para operar (brokers, partições, offsets)."
+     ]
+    },
+    {
+     "broker": "RABBITMQ",
+     "best": true,
+     "score": 85,
+     "capacity": 266.6666666666667,
+     "ratio": 0.6974999999999999,
+     "p50Ms": 22.688595238248976,
+     "p99Ms": 83.91403333354857,
+     "backlog": 0,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.0052320000000000005,
+     "pros": [
+      "Menor overhead por mensagem; retry imediato com nack.",
+      "Roteamento flexível (exchanges, bindings)."
+     ],
+     "cons": [
+      "Sem limite, a fila cresce na memória/disco do broker."
+     ]
+    },
+    {
+     "broker": "SQS",
+     "best": false,
+     "score": 57,
+     "capacity": 266.6666666666667,
+     "ratio": 0.6974999999999999,
+     "p50Ms": 40.68859523824898,
+     "p99Ms": 1001.4640333335485,
+     "backlog": 0,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.0219628,
+     "pros": [
+      "Gerenciado: sem broker para operar, escala sozinho.",
+      "DLQ nativa via maxReceiveCount."
+     ],
+     "cons": [
+      "Retry só após visibility timeout (30s): cauda longa.",
+      "Sem ordenação global (fila padrão); custo cresce por request."
+     ]
+    }
+   ]
+  },
+  "overload-5x": {
+   "scenario": {
+    "broker": "KAFKA",
+    "consumers": 4,
+    "processingMs": 15,
+    "failurePct": 1,
+    "maxRetries": 3,
+    "messageSizeKb": 2,
+    "durationSeconds": 120,
+    "queueCapacity": null,
+    "partitions": 6,
+    "visibilityTimeoutSeconds": null,
+    "dlqEnabled": true,
+    "burstEnabled": false,
+    "executionMode": "SIMULATED",
+    "serviceProfile": "EXPONENTIAL",
+    "name": "baseline-overload",
+    "ratePerSecond": 1333
+   },
+   "instantRun": {
+    "id": "0dc6750c-727a-439d-abb4-e447dd7dafb4",
+    "scenarioId": "0f6e696d-a3fd-4c9a-91c5-fbd1e72b5df0",
+    "status": "COMPLETED",
+    "mode": "INSTANT",
+    "seed": 424242,
+    "startedAt": "2026-09-21T00:38:59.918886200Z",
+    "finishedAt": "2026-09-21T00:38:59.920107200Z",
+    "producedTotal": 157977,
+    "deliveredTotal": 31661,
+    "dlqTotal": 0,
+    "droppedTotal": 0,
+    "retriesTotal": 307
+   },
+   "instantReport": {
+    "narrative": "Os produtores publicam ~1333 msg/s e 4 consumidor(es) com 15 ms por mensagem conseguem processar até ~267 msg/s (5,00× de ocupação). Aos 6s o backlog passou de 5s de produção; o pico foi de 126,3k mensagens aos 119s, quando a latência p95 chegou a 521,1k ms. Até o fim da simulação o backlog não foi drenado. Falhas geraram 307 retries. Ao final, 31,7k de 158,0k mensagens foram entregues (20,0%) e 126,3k ficaram pendentes.",
+    "insights": [
+     {
+      "tone": "danger",
+      "text": "A produção (1333/s) supera a capacidade de consumo (~267/s). O backlog cresce sem parar: ou adicione consumidores, ou reduza o tempo de processamento."
+     }
+    ],
+    "conclusion": [
+     "Para 1333 msg/s com 4 consumidores a 15 ms, o modelo aponta RabbitMQ como a melhor opção (62 pts): capacidade de ~267 msg/s, latência p50 estimada em 48014 ms e perda esperada de 0,00%. O cenário usa Kafka (55 pts); a diferença vem principalmente de custo ($0,036 vs $0,019).",
+     "Nenhuma troca de broker resolve carga acima da capacidade: com 1333 msg/s você precisa de pelo menos 25 consumidores ativos (para ficar em ~80%) ou reduzir o processamento para ~2 ms.",
+     "A simulação rodada confirma o modelo: pico de backlog em 126,3k mensagens, 0 perdidas e p95 final de 521087 ms."
+    ]
+   },
+   "decision": {
+    "rounds": 30,
+    "masterSeed": 424242,
+    "stabilityWeight": 0.35,
+    "latencyWeight": 0.25,
+    "lossWeight": 0.2,
+    "costWeight": 0.1,
+    "opsWeight": 0.1,
+    "brokers": [
+     {
+      "broker": "KAFKA",
+      "scoreMedian": 54.82129377822334,
+      "scoreLow": 54.82102432678983,
+      "scoreHigh": 54.82163554592508,
+      "points": {
+       "stability": 0,
+       "latency": 24.994133773314427,
+       "loss": 20,
+       "cost": 5.32717618905175,
+       "ops": 4.5
+      },
+      "modelP50Ms": 48016.99924981245,
+      "simP50Ms": 158029.78703703705,
+      "modelP99Ms": 67274.74894973742,
+      "simP99Ms": 368761.48148148146,
+      "modelErrorPct": 75.68589538447524,
+      "simP99WorstMs": 383524.7037037037,
+      "peakBacklogMedian": 128727,
+      "lossPctMedian": 0
+     },
+     {
+      "broker": "RABBITMQ",
+      "scoreMedian": 61.994117589171594,
+      "scoreLow": 61.993848137738084,
+      "scoreHigh": 61.994459356873335,
+      "points": {
+       "stability": 0,
+       "latency": 24.994133773314427,
+       "loss": 20,
+       "cost": 10,
+       "ops": 7
+      },
+      "modelP50Ms": 48013.99924981245,
+      "simP50Ms": 158026.78703703705,
+      "modelP99Ms": 67271.74894973742,
+      "simP99Ms": 368761.48148148146,
+      "modelErrorPct": 75.68696294345222,
+      "simP99WorstMs": 383524.7037037037,
+      "peakBacklogMedian": 128727,
+      "lossPctMedian": 0
+     },
+     {
+      "broker": "SQS",
+      "scoreMedian": 56.2068553654111,
+      "scoreLow": 56.2068553654111,
+      "scoreHigh": 56.2068553654111,
+      "points": {
+       "stability": 0,
+       "latency": 25,
+       "loss": 20,
+       "cost": 1.2068553654111034,
+       "ops": 10
+      },
+      "modelP50Ms": 48031.99924981245,
+      "simP50Ms": 157877.5648148148,
+      "modelP99Ms": 68189.29894973742,
+      "simP99Ms": 368671.73148148146,
+      "modelErrorPct": 75.54024297626768,
+      "simP99WorstMs": 383438.7962962963,
+      "peakBacklogMedian": 128650,
+      "lossPctMedian": 0
+     }
+    ],
+    "tie": true,
+    "leader": "RABBITMQ",
+    "runnerUp": "SQS",
+    "scoreGap": 5.787262223760493,
+    "leaderWinRate": 0,
+    "decidedBy": "custo",
+    "verdict": "Empate técnico entre RABBITMQ e SQS: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (5,8 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+   },
+   "suite": {
+    "variants": [
+     {
+      "variant": "HEALTHY",
+      "label": "Saudável",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 54.82129377822334,
+         "scoreLow": 54.821057870138816,
+         "scoreHigh": 54.82163554592508,
+         "points": {
+          "stability": 0,
+          "latency": 24.994143670946336,
+          "loss": 20,
+          "cost": 5.32717618905175,
+          "ops": 4.5
+         },
+         "modelP50Ms": 48016.99924981245,
+         "simP50Ms": 158029.78703703705,
+         "modelP99Ms": 67274.74894973742,
+         "simP99Ms": 368761.48148148146,
+         "modelErrorPct": 75.68589538447524,
+         "simP99WorstMs": 381603.99074074073,
+         "peakBacklogMedian": 128727,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 61.994117589171594,
+         "scoreLow": 61.99388168108707,
+         "scoreHigh": 61.994459356873335,
+         "points": {
+          "stability": 0,
+          "latency": 24.994143670946336,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 48013.99924981245,
+         "simP50Ms": 158026.78703703705,
+         "modelP99Ms": 67271.74894973742,
+         "simP99Ms": 368761.48148148146,
+         "modelErrorPct": 75.68696294345222,
+         "simP99WorstMs": 381603.99074074073,
+         "peakBacklogMedian": 128727,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 56.2068553654111,
+         "scoreLow": 56.2068553654111,
+         "scoreHigh": 56.2068553654111,
+         "points": {
+          "stability": 0,
+          "latency": 25,
+          "loss": 20,
+          "cost": 1.2068553654111032,
+          "ops": 10
+         },
+         "modelP50Ms": 48031.99924981245,
+         "simP50Ms": 157877.5648148148,
+         "modelP99Ms": 68189.29894973742,
+         "simP99Ms": 368671.73148148146,
+         "modelErrorPct": 75.54024297626768,
+         "simP99WorstMs": 381514.85185185185,
+         "peakBacklogMedian": 128650,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "SQS",
+       "scoreGap": 5.787262223760493,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e SQS: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (5,8 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "CONSUMER_DOWN",
+      "label": "Metade dos consumidores cai",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 54.82717618905175,
+         "scoreLow": 54.82717618905175,
+         "scoreHigh": 54.82717618905175,
+         "points": {
+          "stability": 0,
+          "latency": 25,
+          "loss": 20,
+          "cost": 5.32717618905175,
+          "ops": 4.5
+         },
+         "modelP50Ms": 48016.99924981245,
+         "simP50Ms": 182674.17592592593,
+         "modelP99Ms": 67274.74894973742,
+         "simP99Ms": 426264.76851851854,
+         "modelErrorPct": 78.96600833574306,
+         "simP99WorstMs": 439329.18518518517,
+         "peakBacklogMedian": 132688,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 60.43528476322466,
+         "scoreLow": 60.37841500835948,
+         "scoreHigh": 60.478579578134884,
+         "points": {
+          "stability": 0,
+          "latency": 23.430902949115758,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 48013.99924981245,
+         "simP50Ms": 195064.37962962964,
+         "modelP99Ms": 67271.74894973742,
+         "simP99Ms": 455182.44444444444,
+         "modelErrorPct": 80.30324454151764,
+         "simP99WorstMs": 469415.9537037037,
+         "peakBacklogMedian": 131916,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 54.647669202766664,
+         "scoreLow": 54.59111463380434,
+         "scoreHigh": 54.69130250549205,
+         "points": {
+          "stability": 0,
+          "latency": 23.436803369406167,
+          "loss": 20,
+          "cost": 1.2068553654111032,
+          "ops": 10
+         },
+         "modelP50Ms": 48031.99924981245,
+         "simP50Ms": 194909.10185185185,
+         "modelP99Ms": 68189.29894973742,
+         "simP99Ms": 455065.6203703704,
+         "modelErrorPct": 80.18611007486261,
+         "simP99WorstMs": 469298.4074074074,
+         "peakBacklogMedian": 131839,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "KAFKA",
+       "scoreGap": 5.60810857417291,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e KAFKA: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 1,6 pontos, dentro do ruído. O desempate seria custo (5,6 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "SPIKE_2X",
+      "label": "Pico de 2× na produção",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 54.822217755419196,
+         "scoreLow": 54.822017391602955,
+         "scoreHigh": 54.8225261334973,
+         "points": {
+          "stability": 0,
+          "latency": 24.995065450557245,
+          "loss": 20,
+          "cost": 5.32717618905175,
+          "ops": 4.5
+         },
+         "modelP50Ms": 48016.99924981245,
+         "simP50Ms": 187753.62962962964,
+         "modelP99Ms": 67274.74894973742,
+         "simP99Ms": 438117.02777777775,
+         "modelErrorPct": 79.5350495716875,
+         "simP99WorstMs": 452925.81481481483,
+         "peakBacklogMedian": 152508,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 61.99504156636745,
+         "scoreLow": 61.99484120255121,
+         "scoreHigh": 61.99534994444555,
+         "points": {
+          "stability": 0,
+          "latency": 24.995065450557245,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 48013.99924981245,
+         "simP50Ms": 187750.62962962964,
+         "modelP99Ms": 67271.74894973742,
+         "simP99Ms": 438117.02777777775,
+         "modelErrorPct": 79.5359865553786,
+         "simP99WorstMs": 452925.81481481483,
+         "peakBacklogMedian": 152508,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 56.2068553654111,
+         "scoreLow": 56.2068553654111,
+         "scoreHigh": 56.2068553654111,
+         "points": {
+          "stability": 0,
+          "latency": 25,
+          "loss": 20,
+          "cost": 1.2068553654111032,
+          "ops": 10
+         },
+         "modelP50Ms": 48031.99924981245,
+         "simP50Ms": 187611,
+         "modelP99Ms": 68189.29894973742,
+         "simP99Ms": 438035.537037037,
+         "modelErrorPct": 79.41551000074679,
+         "simP99WorstMs": 452836.6574074074,
+         "peakBacklogMedian": 152431,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "SQS",
+       "scoreGap": 5.788186200956346,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e SQS: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,0 pontos, dentro do ruído. O desempate seria custo (5,8 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     },
+     {
+      "variant": "FAILURE_10",
+      "label": "Falha de 10%",
+      "decision": {
+       "rounds": 20,
+       "masterSeed": 424242,
+       "stabilityWeight": 0.35,
+       "latencyWeight": 0.25,
+       "lossWeight": 0.2,
+       "costWeight": 0.1,
+       "opsWeight": 0.1,
+       "brokers": [
+        {
+         "broker": "KAFKA",
+         "scoreMedian": 54.76887009432962,
+         "scoreLow": 54.765573354860386,
+         "scoreHigh": 54.771206766505905,
+         "points": {
+          "stability": 0,
+          "latency": 24.9421046998661,
+          "loss": 20,
+          "cost": 5.32717618905175,
+          "ops": 4.5
+         },
+         "modelP50Ms": 48016.99924981245,
+         "simP50Ms": 161623.38888888888,
+         "modelP99Ms": 67319.29894973742,
+         "simP99Ms": 377173.85185185185,
+         "modelErrorPct": 76.22123149310465,
+         "simP99WorstMs": 390089.74074074073,
+         "peakBacklogMedian": 131606,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "RABBITMQ",
+         "scoreMedian": 61.94169390527787,
+         "scoreLow": 61.93839716580864,
+         "scoreHigh": 61.94403057745416,
+         "points": {
+          "stability": 0,
+          "latency": 24.9421046998661,
+          "loss": 20,
+          "cost": 10,
+          "ops": 7
+         },
+         "modelP50Ms": 48013.99924981245,
+         "simP50Ms": 161620.38888888888,
+         "modelP99Ms": 67316.29894973742,
+         "simP99Ms": 377173.85185185185,
+         "modelErrorPct": 76.22228155721297,
+         "simP99WorstMs": 390089.74074074073,
+         "peakBacklogMedian": 131606,
+         "lossPctMedian": 0
+        },
+        {
+         "broker": "SQS",
+         "scoreMedian": 56.16421598670308,
+         "scoreLow": 56.16421598670308,
+         "scoreHigh": 56.16421598670308,
+         "points": {
+          "stability": 0,
+          "latency": 25,
+          "loss": 20,
+          "cost": 1.1642159867030792,
+          "ops": 10
+         },
+         "modelP50Ms": 48031.99924981245,
+         "simP50Ms": 159966.37037037036,
+         "modelP99Ms": 76329.79894973742,
+         "simP99Ms": 376292.44444444444,
+         "modelErrorPct": 74.84449396457526,
+         "simP99WorstMs": 389181.6759259259,
+         "peakBacklogMedian": 130821,
+         "lossPctMedian": 0
+        }
+       ],
+       "tie": true,
+       "leader": "RABBITMQ",
+       "runnerUp": "SQS",
+       "scoreGap": 5.777477918574796,
+       "leaderWinRate": 0,
+       "decidedBy": "custo",
+       "verdict": "Empate técnico entre RABBITMQ e SQS: nos critérios técnicos (estabilidade, latência, perda) a diferença é de 0,1 pontos, dentro do ruído. O desempate seria custo (5,8 pontos a favor de RABBITMQ no total) — a decisão aqui não é técnica. O custo é o da rodada simulada: projete para o volume real antes de decidir."
+      }
+     }
+    ],
+    "leaderChanges": false,
+    "summary": "Nenhum broker se destaca em nenhum cenário testado. Saudável: empate técnico (RABBITMQ / SQS); Metade dos consumidores cai: empate técnico (RABBITMQ / KAFKA); Pico de 2× na produção: empate técnico (RABBITMQ / SQS); Falha de 10%: empate técnico (RABBITMQ / SQS)."
+   },
+   "sweep": {
+    "rounds": 20,
+    "masterSeed": 424242,
+    "brokers": [
+     {
+      "broker": "KAFKA",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 81.11111111111111,
+        "p99P95Ms": 81.66666666666667,
+        "p99WorstMs": 81.70370370370371,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 98.11111111111111,
+        "p99P95Ms": 99.70370370370371,
+        "p99WorstMs": 100.22222222222223,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 259.7037037037037,
+        "p99P95Ms": 293.6666666666667,
+        "p99WorstMs": 310.27777777777777,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 428.3703703703704,
+        "p99P95Ms": 508.2962962962963,
+        "p99WorstMs": 555.4166666666666,
+        "peakBacklogMedian": 117
+       }
+      ]
+     },
+     {
+      "broker": "RABBITMQ",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 81.11111111111111,
+        "p99P95Ms": 81.66666666666667,
+        "p99WorstMs": 81.70370370370371,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 98.11111111111111,
+        "p99P95Ms": 99.70370370370371,
+        "p99WorstMs": 100.22222222222223,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 259.7037037037037,
+        "p99P95Ms": 293.6666666666667,
+        "p99WorstMs": 310.27777777777777,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 428.3703703703704,
+        "p99P95Ms": 508.2962962962963,
+        "p99WorstMs": 555.4166666666666,
+        "peakBacklogMedian": 117
+       }
+      ]
+     },
+     {
+      "broker": "SQS",
+      "capacity": 266.6666666666667,
+      "points": [
+       {
+        "occupancyPct": 50,
+        "ratePerSecond": 133,
+        "p99MedianMs": 365.23148148148147,
+        "p99P95Ms": 378.10185185185185,
+        "p99WorstMs": 384.75925925925924,
+        "peakBacklogMedian": 2
+       },
+       {
+        "occupancyPct": 75,
+        "ratePerSecond": 200,
+        "p99MedianMs": 398.98148148148147,
+        "p99P95Ms": 406.43518518518516,
+        "p99WorstMs": 412.44444444444446,
+        "peakBacklogMedian": 3
+       },
+       {
+        "occupancyPct": 90,
+        "ratePerSecond": 240,
+        "p99MedianMs": 553.3425925925926,
+        "p99P95Ms": 599.9907407407408,
+        "p99WorstMs": 603.6481481481482,
+        "peakBacklogMedian": 45
+       },
+       {
+        "occupancyPct": 95,
+        "ratePerSecond": 253,
+        "p99MedianMs": 720.1851851851852,
+        "p99P95Ms": 806.0648148148148,
+        "p99WorstMs": 822.5462962962963,
+        "peakBacklogMedian": 116
+       }
+      ]
+     }
+    ]
+   },
+   "tradeoffs": [
+    {
+     "broker": "KAFKA",
+     "best": false,
+     "score": 55,
+     "capacity": 266.6666666666667,
+     "ratio": 4.998749999999999,
+     "p50Ms": 48016.99924981245,
+     "p99Ms": 67274.74894973742,
+     "backlog": 127960,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.035658666666666665,
+     "pros": [
+      "Retenção em log: nada é descartado por fila cheia; dá para reprocessar.",
+      "Escala horizontal previsível via partições."
+     ],
+     "cons": [
+      "Carga 5,00× a capacidade: backlog cresce indefinidamente.",
+      "Mais peças para operar (brokers, partições, offsets)."
+     ]
+    },
+    {
+     "broker": "RABBITMQ",
+     "best": true,
+     "score": 62,
+     "capacity": 266.6666666666667,
+     "ratio": 4.998749999999999,
+     "p50Ms": 48013.99924981245,
+     "p99Ms": 67271.74894973742,
+     "backlog": 127960,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.018996,
+     "pros": [
+      "Menor overhead por mensagem; retry imediato com nack.",
+      "Roteamento flexível (exchanges, bindings)."
+     ],
+     "cons": [
+      "Carga 5,00× a capacidade: backlog cresce indefinidamente.",
+      "Sem limite, a fila cresce na memória/disco do broker."
+     ]
+    },
+    {
+     "broker": "SQS",
+     "best": false,
+     "score": 56,
+     "capacity": 266.6666666666667,
+     "ratio": 4.998749999999999,
+     "p50Ms": 48031.99924981245,
+     "p99Ms": 68189.29894973742,
+     "backlog": 127960,
+     "loss": 0,
+     "lossPct": 0,
+     "cost": 0.1574008,
+     "pros": [
+      "Gerenciado: sem broker para operar, escala sozinho.",
+      "DLQ nativa via maxReceiveCount."
+     ],
+     "cons": [
+      "Carga 5,00× a capacidade: backlog cresce indefinidamente.",
+      "Retry só após visibility timeout (30s): cauda longa.",
+      "Sem ordenação global (fila padrão); custo cresce por request."
+     ]
+    }
+   ]
+  }
+ }
+}

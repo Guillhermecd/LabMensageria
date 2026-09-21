@@ -4,11 +4,27 @@ import {
   PlayCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Col,
+  Empty,
+  Progress,
+  Row,
+  Space,
+  Spin,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useRef } from 'react';
 import { BacklogChart } from './BacklogChart';
 import { ConclusionPanel } from './ConclusionPanel';
 import { ConsumerUtilization } from './ConsumerUtilization';
+import { BatchPanel } from './BatchPanel';
+import { DecisionPanel } from './DecisionPanel';
+import { SuitePanel } from './SuitePanel';
+import { SweepPanel } from './SweepPanel';
 import { EventTimeline } from './EventTimeline';
 import { HelpLabel } from '../../components/ui/HelpLabel';
 import { useTheme } from '../../hooks/useTheme';
@@ -101,11 +117,13 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
                 <Button
                   type="primary"
                   icon={<PlayCircleOutlined />}
-                  onClick={runInstant}
+                  onClick={() => runInstant()}
                   loading={running}
                   disabled={!scenario}
                 >
-                  Resultado instantâneo
+                  <Tooltip title="Uma única rodada sorteada com uma semente: é uma amostra, não uma medida. Para decidir, use as análises de várias rodadas abaixo.">
+                    <span>Resultado instantâneo (rodada única)</span>
+                  </Tooltip>
                 </Button>
               )}
             </>
@@ -133,6 +151,34 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
         />
       )}
 
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <BatchPanel
+            scenarioId={scenarioId}
+            disabled={running}
+            onReplay={(seed) => runInstant(seed)}
+          />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <DecisionPanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <SuitePanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
+      {scenario && !isReal && (
+        <div style={{ marginBottom: 16 }}>
+          <SweepPanel scenarioId={scenarioId} disabled={running} />
+        </div>
+      )}
+
       {isLiveRunning && (
         <Progress percent={progressPct} status="active" style={{ marginBottom: 16 }} />
       )}
@@ -141,10 +187,6 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
 
       {!running && !hasResult && !error && (
         <Empty description="Clique em “Resultado instantâneo” ou “Rodar ao vivo” para gerar o relatório deste cenário." />
-      )}
-
-      {history.length > 0 && (
-        <RunHistory history={history} activeRunId={run?.id ?? null} onReopen={reopen} />
       )}
 
       <div ref={exportRef} style={{ background: config.token?.colorBgLayout }}>
@@ -163,6 +205,13 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
 
           {hasResult && (
             <>
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message={`Rodada única · semente ${run.seed}`}
+                description="Este resultado é uma amostra de uma execução, não uma medida do sistema. Rode as análises de várias rodadas (faixa de resultados, decisão, suíte) antes de concluir; a semente acima repete esta execução exatamente."
+              />
               <KpiGrid kpis={buildKpis(scenario, run, ticks)} />
               <Row gutter={[16, 16]}>
                 <Col xs={24} xl={12}>
@@ -174,7 +223,7 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
               </Row>
               <Row gutter={[16, 16]}>
                 <Col xs={24} xl={12}>
-                  <LatencyChart ticks={ticks} />
+                  <LatencyChart scenario={scenario} ticks={ticks} />
                 </Col>
                 <Col xs={24} xl={12}>
                   <ConsumerUtilization scenario={scenario} ticks={ticks} />
@@ -206,6 +255,12 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
           )}
         </Space>
       </div>
+
+      {history.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <RunHistory history={history} activeRunId={run?.id ?? null} onReopen={reopen} />
+        </div>
+      )}
     </div>
   );
 }

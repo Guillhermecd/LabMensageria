@@ -99,9 +99,15 @@ class ScenarioValidatorTest {
                 queueCapacity,
                 partitions,
                 visTimeout,
+                null,
+                null,
+                null,
+                null,
+                null,
                 true,
                 false,
-                ExecutionMode.SIMULATED);
+                ExecutionMode.SIMULATED,
+                com.bimd.msgsim.domain.model.ServiceProfile.EXPONENTIAL);
     }
 
     private ScenarioRequest realRequest(BrokerType broker, Integer partitions, int ratePerSecond, int durationSeconds) {
@@ -118,8 +124,14 @@ class ScenarioValidatorTest {
                 0,
                 partitions,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 true,
                 false,
-                ExecutionMode.REAL);
+                ExecutionMode.REAL,
+                com.bimd.msgsim.domain.model.ServiceProfile.EXPONENTIAL);
     }
 }

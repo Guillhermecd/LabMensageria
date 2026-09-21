@@ -9,6 +9,7 @@ export type User = {
 export type Broker = 'KAFKA' | 'RABBITMQ' | 'SQS';
 
 export type ExecutionMode = 'SIMULATED' | 'REAL';
+export type ServiceProfile = 'CONSTANT' | 'EXPONENTIAL' | 'HEAVY_TAIL';
 
 export type Scenario = {
   id: string;
@@ -24,9 +25,15 @@ export type Scenario = {
   queueCapacity: number | null;
   partitions: number | null;
   visibilityTimeoutSeconds: number | null;
+  retentionHours: number | null;
+  retentionMb: number | null;
+  highWatermarkMb: number | null;
+  prefetch: number | null;
+  inflightMax: number | null;
   dlqEnabled: boolean;
   burstEnabled: boolean;
   executionMode: ExecutionMode;
+  serviceProfile: ServiceProfile;
   createdAt: string;
   updatedAt: string;
 };
@@ -117,8 +124,126 @@ export type RunReport = {
   events: SimulationEvent[];
 };
 
+export type MetricRange = {
+  min: number;
+  median: number;
+  p95: number;
+  worst: number;
+  worstSeed: number;
+};
+
+export type BatchSummary = {
+  scenarioId: string;
+  rounds: number;
+  masterSeed: number;
+  warmupSeconds: number;
+  p50Ms: MetricRange;
+  p95Ms: MetricRange;
+  p99Ms: MetricRange;
+  peakBacklog: MetricRange;
+  lossPct: MetricRange;
+  rawCapacity: number;
+  usefulCapacity: number;
+};
+
+export type DecisionPoints = {
+  stability: number;
+  latency: number;
+  loss: number;
+  cost: number;
+  ops: number;
+};
+
+export type FailureMode = 'DROP' | 'PRODUCER_BLOCKED' | 'INFLIGHT_EXHAUSTED' | 'UNBOUNDED_BACKLOG';
+
+/** Replaces p50/p99/final backlog when load > capacity (those only measure the run length). */
+export type Saturation = {
+  ratePerSecond: number;
+  capacityPerSecond: number;
+  deficitPerSecond: number;
+  secondsToCeiling: number | null;
+  ceilingWithinRun: boolean;
+  failureMode: FailureMode;
+  accumulatedCost: number;
+  recommendation: string;
+};
+
+export type BrokerDecision = {
+  broker: Broker;
+  scoreMedian: number;
+  scoreLow: number;
+  scoreHigh: number;
+  points: DecisionPoints;
+  modelP50Ms: number;
+  simP50Ms: number;
+  modelP99Ms: number;
+  simP99Ms: number;
+  modelErrorPct: number;
+  simP99WorstMs: number;
+  peakBacklogMedian: number;
+  lossPctMedian: number;
+  scoreWorst: number;
+  simP99P95Ms: number;
+  peakBacklogWorst: number;
+  tiedWith: Broker[];
+  modelReliable: boolean;
+  saturation: Saturation | null;
+};
+
+export type Decision = {
+  rounds: number;
+  masterSeed: number;
+  stabilityWeight: number;
+  latencyWeight: number;
+  lossWeight: number;
+  costWeight: number;
+  opsWeight: number;
+  brokers: BrokerDecision[];
+  tie: boolean;
+  leader: Broker;
+  runnerUp: Broker;
+  scoreGap: number;
+  leaderWinRate: number;
+  decidedBy: string;
+  verdict: string;
+};
+
+export type ScoreWeights = {
+  stability: number;
+  latency: number;
+  loss: number;
+  cost: number;
+  ops: number;
+};
+
 export type CompareResult = {
   a: RunReport;
   b: RunReport;
   comparison: string;
+};
+
+export type SuiteVariant = {
+  variant: string;
+  label: string;
+  occupancyPct: number;
+  ratePerSecond: number;
+  detail: string;
+  decision: Decision;
+};
+
+export type Suite = { variants: SuiteVariant[]; leaderChanges: boolean; summary: string };
+
+export type SweepPoint = {
+  occupancyPct: number;
+  ratePerSecond: number;
+  p99MedianMs: number;
+  p99P95Ms: number;
+  p99WorstMs: number;
+  peakBacklogMedian: number;
+};
+
+export type Sweep = {
+  rounds: number;
+  masterSeed: number;
+  brokers: { broker: Broker; capacity: number; points: SweepPoint[] }[];
 };

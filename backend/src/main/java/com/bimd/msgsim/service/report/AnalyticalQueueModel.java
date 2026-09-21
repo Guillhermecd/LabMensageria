@@ -2,6 +2,7 @@ package com.bimd.msgsim.service.report;
 
 import com.bimd.msgsim.domain.model.BrokerType;
 import com.bimd.msgsim.domain.model.Scenario;
+import com.bimd.msgsim.domain.model.ServiceProfile;
 import com.bimd.msgsim.service.simulation.broker.BrokerBehavior;
 import java.util.EnumMap;
 import java.util.List;
@@ -28,6 +29,11 @@ public class AnalyticalQueueModel {
         this.costEstimator = costEstimator;
     }
 
+    /** Backlog (messages) at which the broker starts dropping or blocking, if it has such a ceiling. */
+    public java.util.OptionalLong backlogCeiling(Scenario scenario, BrokerType broker) {
+        return behaviors.get(broker).backlogCeiling(scenario);
+    }
+
     public BrokerModel compute(Scenario scenario, BrokerType broker) {
         BrokerBehavior behavior = behaviors.get(broker);
         int rate = scenario.getRatePerSecond();
@@ -39,14 +45,15 @@ public class AnalyticalQueueModel {
         double capacity = effectiveConsumers * (1000.0 / Math.max(1, processingMs));
         double ratio = rate / capacity;
         boolean stable = ratio < 1;
+        ServiceProfile profile = scenario.getServiceProfile();
         double wait = stable
-                ? processingMs * Math.pow(ratio, effectiveConsumers) / (effectiveConsumers * (1 - ratio))
+                ? profile.queueingWaitMs(ratio, effectiveConsumers, processingMs)
                 : duration * 1000.0 * (1 - 1 / ratio) / 2;
 
         int overhead = behavior.latencyOverheadMs();
         int retryDelayMs = behavior.analyticalRetryDelayMs(scenario);
         double p50 = processingMs + overhead + wait;
-        double p99 = processingMs * 2.8 + overhead + wait * 1.4
+        double p99 = processingMs * profile.p99Factor() + overhead + wait * 1.4
                 + failureRate * (retryDelayMs + processingMs * 10) * 3;
 
         long produced = (long) rate * duration;
