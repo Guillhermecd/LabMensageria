@@ -53,10 +53,10 @@ class BatchServiceTest {
         SimulationState state = engine.runToCompletion(scenario, 5L);
         int warmup = RunStatistics.warmupSeconds(60);
 
-        double steadyMean = state.getTicks().stream().filter(t -> t.second() >= warmup)
-                .mapToDouble(TickResult::p99Ms).average().orElseThrow();
+        double[] steady = state.latenciesSince(warmup * 1000.0);
 
-        assertThat(RunStatistics.of(state, scenario).p99Ms()).isEqualTo(steadyMean);
+        assertThat(steady.length).isLessThan(state.latenciesSince(0).length);
+        assertThat(RunStatistics.of(state, scenario).p99Ms()).isEqualTo(Percentile.of(steady, steady.length, 0.99));
         assertThat(warmup).isEqualTo(6);
     }
 

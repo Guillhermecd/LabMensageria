@@ -7,7 +7,8 @@ import java.util.function.ToDoubleFunction;
 /**
  * Steady-state summary of one simulated run. Ticks before {@link #warmupSeconds(int)} are dropped:
  * the queue starts empty, so nothing waits yet and the early latencies flatter the system.
- * Latencies are means of the per-tick percentile series, not percentiles of individual messages.
+ * Latencies are percentiles over the individual messages delivered after warmup (queue wait + service
+ * + broker overhead), falling back to the per-tick series only when nothing was delivered.
  */
 public record RunStatistics(
         int warmupSeconds,
@@ -40,11 +41,14 @@ public record RunStatistics(
                 ? 100.0 * (state.getDlq() + state.getDropped()) / state.getProduced()
                 : 0;
 
+        double[] delivered = state.latenciesSince(warmup * 1000.0);
+        boolean measured = delivered.length > 0;
+
         return new RunStatistics(
                 warmup,
-                mean(ticks, TickResult::p50Ms),
-                mean(ticks, TickResult::p95Ms),
-                mean(ticks, TickResult::p99Ms),
+                measured ? Percentile.of(delivered, delivered.length, 0.50) : mean(ticks, TickResult::p50Ms),
+                measured ? Percentile.of(delivered, delivered.length, 0.95) : mean(ticks, TickResult::p95Ms),
+                measured ? Percentile.of(delivered, delivered.length, 0.99) : mean(ticks, TickResult::p99Ms),
                 ticks.stream().mapToDouble(TickResult::backlog).max().orElse(0),
                 mean(ticks, TickResult::consumed),
                 rawCapacity,

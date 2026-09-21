@@ -31,9 +31,7 @@ public class RabbitMqBehavior implements BrokerBehavior {
         if (capacity == null || capacity <= 0 || state.getQueue() <= capacity) {
             return 0;
         }
-        int dropped = (int) Math.round(state.getQueue() - capacity);
-        state.setQueue(capacity);
-        state.addDropped(dropped);
+        int dropped = state.dropOldest((int) Math.round(state.getQueue() - capacity));
         if (!state.isDropSeen()) {
             state.setDropSeen(true);
             state.addEvent(new EventResult(

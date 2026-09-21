@@ -107,3 +107,16 @@ curl -s http://localhost:1337/api/runs/$RUN_ID/events -H "Authorization: Bearer 
 - Testado ao vivo com seed fixa (42): 30 ticks, `producedTotal=5995`, `deliveredTotal=5993`, `retriesTotal=63`, evento `FINISHED` com backlog residual — bateu com o esperado pra um cenário Kafka saudável (folga de capacidade, poucas falhas).
 - Erro de schema: mapeei `double` em Java esperando `NUMERIC(10,2)` no Postgres, mas o Hibernate valida `double` como `float8`/`double precision`, não `numeric`. `ddl-auto=validate` pegou a divergência no boot (`Schema-validation: wrong column type`) — corrigido trocando `NUMERIC` por `DOUBLE PRECISION` na migration. Lição: ao mapear `double`/`Double` em Java, a coluna Postgres correspondente é `double precision`, não `numeric`.
 - `SimulationState` package-private com getters/setters pontuais para os campos que `BrokerBehavior` precisa tocar (`queue`, `dropped`, `dropSeen`, eventos) é mais simples do que abrir a classe inteira como pública — só RabbitMQ precisa mutar a fila de fora do engine.
+
+## 7. Motor por eventos discretos (Etapa 1 do plano de confiabilidade)
+
+O avanço por tick de 1 s foi substituído por uma fila de eventos futuros (min-heap) ordenada por instante em ms. O relógio salta para o próximo evento; `step()` continua avançando até a próxima fronteira de 1 s e emitindo um `TickResult` (é a unidade do stream ao vivo e da série persistida).
+
+- **Eventos:** `ARRIVAL` (chegada Poisson, taxa por segundo seguindo burst/pico), `COMPLETION` (fim de serviço; sorteia falha), `REAPPEAR` (retry com atraso, ex.: visibility timeout do SQS) e `SWEEP` (varredura a cada segundo: overflow do broker, fechamento do tick, capacidade do próximo segundo). Empates no mesmo instante: conclusão, reaparecimento, chegada, varredura.
+- **Cada mensagem é rastreada**, então p50/p95/p99 são percentis de latência reais (espera + serviço + overhead do broker), não fórmulas. `RunStatistics` usa o conjunto de mensagens entregues após o warmup.
+- **Três streams de RNG** (chegadas, tempo de serviço, falhas) derivados de uma seed via `SplittableRandom.split()`. Mudar a taxa de falha não altera as chegadas; dois brokers com a mesma seed recebem as mesmas mensagens nos mesmos instantes.
+- **Variação do serviço** de verdade: `CONSTANT` (tempo fixo), `EXPONENTIAL` (média `processingMs`) e `HEAVY_TAIL` (5% das mensagens a 10× a média; as demais encurtadas para manter a média).
+- **Tentativas:** uma mensagem que falha é reenfileirada até `maxRetries` novas tentativas; ao esgotar, vai para a DLQ (se `dlqEnabled`; sem DLQ continua tentando).
+- **Invariantes em toda simulação:** conservação `produzidas = entregues + pendentes + descartadas + dlq` (lança `IllegalStateException` se falhar) e lei de Little (`L = λ·W`, com L pela integral exata no tempo; aviso em `SimulationState.getWarnings()` e no log se o erro passar de 2%).
+- **Calibração:** `SimulationEngineTest.should_matchErlangC_when_arrivalsAndServiceAreExponential` compara a espera média com a fórmula de Erlang-C (M/M/c) em 30/50/70/85% de ocupação, tolerância de 5%.
+- **Limite conhecido:** só mensagens entregues entram nas latências; em saturação o backlog ainda não servido não aparece nelas (tratado na Etapa 4, modo saturado).

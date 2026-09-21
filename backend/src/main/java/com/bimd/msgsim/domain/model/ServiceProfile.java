@@ -38,6 +38,23 @@ public enum ServiceProfile {
     }
 
     /**
+     * Draws one message's service time (ms) from {@code u} in [0,1), keeping the mean at {@code meanMs}.
+     * HEAVY_TAIL: 5% of messages take 10x the mean, the rest are shortened so the mean is unchanged.
+     */
+    public double sampleServiceMs(double meanMs, double u) {
+        return switch (this) {
+            case CONSTANT -> meanMs;
+            case EXPONENTIAL -> -meanMs * Math.log(1 - u);
+            case HEAVY_TAIL -> u < HEAVY_TAIL_SHARE ? HEAVY_TAIL_FACTOR * meanMs : meanMs * HEAVY_TAIL_BODY;
+        };
+    }
+
+    private static final double HEAVY_TAIL_SHARE = 0.05;
+    private static final double HEAVY_TAIL_FACTOR = 10.0;
+    /** (1 - 0.05 * 10) / (1 - 0.05): the body time that keeps the overall mean at 1x. */
+    private static final double HEAVY_TAIL_BODY = (1 - HEAVY_TAIL_SHARE * HEAVY_TAIL_FACTOR) / (1 - HEAVY_TAIL_SHARE);
+
+    /**
      * Mean queueing delay in ms at utilisation {@code rho} with {@code servers} consumers
      * (Allen-Cunneen, Poisson arrivals). Grows without bound as rho approaches 1, so it is
      * capped just below saturation — beyond that the backlog term dominates.
