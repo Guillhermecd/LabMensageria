@@ -1,11 +1,12 @@
 import { ExperimentOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Space, Table, Typography } from 'antd';
 import { useState } from 'react';
-import { RunService } from '../../api/modules/run.service';
+import { DEFAULT_ROUNDS, RunService } from '../../api/modules/run.service';
 import type { BatchSummary, MetricRange } from '../../api/modules/types';
 import { HelpLabel } from '../../components/ui/HelpLabel';
+import { SeedControl } from './SeedControl';
 
-const ROUNDS = 30;
+const ROUNDS = DEFAULT_ROUNDS;
 
 type Row = { key: string; label: string; unit: string; range: MetricRange; decimals: number };
 
@@ -14,7 +15,13 @@ function rows(batch: BatchSummary): Row[] {
     { key: 'p50', label: 'Latência p50', unit: 'ms', range: batch.p50Ms, decimals: 0 },
     { key: 'p95', label: 'Latência p95', unit: 'ms', range: batch.p95Ms, decimals: 0 },
     { key: 'p99', label: 'Latência p99', unit: 'ms', range: batch.p99Ms, decimals: 0 },
-    { key: 'backlog', label: 'Pico de backlog', unit: 'msgs', range: batch.peakBacklog, decimals: 0 },
+    {
+      key: 'backlog',
+      label: 'Pico de backlog',
+      unit: 'msgs',
+      range: batch.peakBacklog,
+      decimals: 0,
+    },
     { key: 'loss', label: 'Perda (DLQ + descartes)', unit: '%', range: batch.lossPct, decimals: 2 },
   ];
 }
@@ -29,6 +36,7 @@ export function BatchPanel({
   onReplay: (seed: number) => void;
 }) {
   const [batch, setBatch] = useState<BatchSummary | null>(null);
+  const [seed, setSeed] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +44,7 @@ export function BatchPanel({
     setLoading(true);
     setError(null);
     try {
-      setBatch(await RunService.runBatch(scenarioId, ROUNDS));
+      setBatch(await RunService.runBatch(scenarioId, ROUNDS, seed ?? undefined));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao rodar as rodadas');
     } finally {
@@ -56,16 +64,14 @@ export function BatchPanel({
         />
       }
       extra={
-        <Button
-          icon={<ExperimentOutlined />}
-          onClick={run}
-          loading={loading}
-          disabled={disabled}
-        >
+        <Button icon={<ExperimentOutlined />} onClick={run} loading={loading} disabled={disabled}>
           Rodar {ROUNDS} rodadas
         </Button>
       }
     >
+      <div style={{ marginBottom: 12 }}>
+        <SeedControl value={seed} onChange={setSeed} lastSeed={batch?.masterSeed} />
+      </div>
       {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
       {!batch && !loading && !error && (
         <Typography.Text type="secondary">

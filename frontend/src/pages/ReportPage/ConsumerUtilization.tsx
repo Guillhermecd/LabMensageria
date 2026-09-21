@@ -1,3 +1,4 @@
+import { WarningFilled } from '@ant-design/icons';
 import { Card, Progress, Space, Typography } from 'antd';
 import { HelpLabel } from '../../components/ui/HelpLabel';
 import { useTheme } from '../../hooks/useTheme';
@@ -40,6 +41,20 @@ export function ConsumerUtilization({ scenario, ticks }: { scenario: Scenario; t
                 </Typography.Text>
                 <Progress
                   percent={active ? Math.round(util * 100) : 0}
+                  // antd turns a 100% bar green with a check mark unless the status is set explicitly
+                  status={active && util >= 0.995 ? 'exception' : 'normal'}
+                  format={(percent) =>
+                    active && util >= 0.995 ? (
+                      <span
+                        title="Consumidor saturado: sem folga"
+                        style={{ color: palette.danger.text }}
+                      >
+                        <WarningFilled /> {percent}%
+                      </span>
+                    ) : (
+                      `${percent}%`
+                    )
+                  }
                   strokeColor={active ? tone : '#4A525C'}
                   size="small"
                   style={{ flex: 1 }}

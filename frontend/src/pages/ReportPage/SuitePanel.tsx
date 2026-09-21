@@ -1,11 +1,13 @@
 import { AppstoreOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { useState } from 'react';
-import { RunService } from '../../api/modules/run.service';
+import { DEFAULT_ROUNDS, RunService } from '../../api/modules/run.service';
 import type { Broker, BrokerDecision, Suite, SuiteVariant } from '../../api/modules/types';
 import { HelpLabel } from '../../components/ui/HelpLabel';
+import { ceilingText, failureModeLabel, money, tiedNames } from './analysisHelpers';
+import { SeedControl } from './SeedControl';
 
-const ROUNDS = 20;
+const ROUNDS = DEFAULT_ROUNDS;
 const BROKERS: { key: Broker; label: string }[] = [
   { key: 'KAFKA', label: 'Kafka' },
   { key: 'RABBITMQ', label: 'RabbitMQ' },
@@ -16,27 +18,50 @@ function cell(variant: SuiteVariant, broker: Broker) {
   const row: BrokerDecision | undefined = variant.decision.brokers.find((b) => b.broker === broker);
   if (!row) return null;
   const { decision } = variant;
-  const isLeader = broker === decision.leader;
-  const inTie = decision.tie && (broker === decision.leader || broker === decision.runnerUp);
+  const isLeader = broker === decision.leader && row.tiedWith.length === 0;
   return (
     <Space orientation="vertical" size={0}>
-      <Space size={4}>
+      <Space size={4} wrap>
         <b>{row.scoreMedian.toFixed(0)} pts</b>
-        {inTie && <Tag color="warning">empate</Tag>}
-        {isLeader && !decision.tie && <Tag color="success">líder</Tag>}
+        {row.tiedWith.length > 0 && (
+          <Tooltip
+            title={`Empate técnico com ${tiedNames(row)}: diferença menor que a dispersão entre rodadas.`}
+          >
+            <Tag color="warning">empate</Tag>
+          </Tooltip>
+        )}
+        {isLeader && <Tag color="success">líder</Tag>}
+        {row.saturation && <Tag color="error">saturado</Tag>}
       </Space>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        p99 {Math.round(row.simP99Ms)} ms (pior {Math.round(row.simP99WorstMs)})
-      </Typography.Text>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        pico backlog {Math.round(row.peakBacklogMedian)} · perda {row.lossPctMedian.toFixed(2)}%
-      </Typography.Text>
+      {row.saturation ? (
+        <>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            déficit {row.saturation.deficitPerSecond.toFixed(0)} msg/s · teto em{' '}
+            {ceilingText(row.saturation)}
+          </Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {failureModeLabel(row.saturation.failureMode)} · {money(row.saturation.accumulatedCost)}
+          </Typography.Text>
+        </>
+      ) : (
+        <>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            p99 {Math.round(row.simP99Ms)} ms (p95 {Math.round(row.simP99P95Ms)}, pior{' '}
+            {Math.round(row.simP99WorstMs)})
+          </Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            pico backlog {Math.round(row.peakBacklogMedian)} (pior{' '}
+            {Math.round(row.peakBacklogWorst)}) · perda {row.lossPctMedian.toFixed(2)}%
+          </Typography.Text>
+        </>
+      )}
     </Space>
   );
 }
 
 export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disabled: boolean }) {
   const [suite, setSuite] = useState<Suite | null>(null);
+  const [seed, setSeed] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +69,7 @@ export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disab
     setLoading(true);
     setError(null);
     try {
-      setSuite(await RunService.suite(scenarioId, ROUNDS));
+      setSuite(await RunService.suite(scenarioId, ROUNDS, seed ?? undefined));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao rodar a suíte');
     } finally {
@@ -67,6 +92,13 @@ export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disab
         </Button>
       }
     >
+      <div style={{ marginBottom: 12 }}>
+        <SeedControl
+          value={seed}
+          onChange={setSeed}
+          lastSeed={suite?.variants[0]?.decision.masterSeed}
+        />
+      </div>
       {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
       {!suite && !loading && !error && (
         <Typography.Text type="secondary">
@@ -75,11 +107,7 @@ export function SuitePanel({ scenarioId, disabled }: { scenarioId: string; disab
       )}
       {suite && (
         <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Alert
-            type={suite.leaderChanges ? 'warning' : 'info'}
-            showIcon
-            message={suite.summary}
-          />
+          <Alert type={suite.leaderChanges ? 'warning' : 'info'} showIcon message={suite.summary} />
           <Table<SuiteVariant>
             size="small"
             pagination={false}

@@ -76,6 +76,16 @@ public class RabbitMqBehavior implements BrokerBehavior {
     }
 
     @Override
+    public java.util.OptionalLong backlogCeiling(Scenario scenario) {
+        int watermarkMb = scenario.getHighWatermarkMb() != null
+                ? scenario.getHighWatermarkMb()
+                : DEFAULT_HIGH_WATERMARK_MB;
+        long ceiling = BrokerBehavior.messagesThatFit(scenario, watermarkMb);
+        Integer maxLength = scenario.getQueueCapacity();
+        return java.util.OptionalLong.of(maxLength != null && maxLength > 0 ? Math.min(ceiling, maxLength) : ceiling);
+    }
+
+    @Override
     public int latencyOverheadMs() {
         return 2;
     }

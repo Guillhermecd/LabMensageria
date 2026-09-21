@@ -4,7 +4,19 @@ import {
   PlayCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Col, Empty, Progress, Row, Space, Spin, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Col,
+  Empty,
+  Progress,
+  Row,
+  Space,
+  Spin,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useRef } from 'react';
 import { BacklogChart } from './BacklogChart';
 import { ConclusionPanel } from './ConclusionPanel';
@@ -109,7 +121,9 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
                   loading={running}
                   disabled={!scenario}
                 >
-                  Resultado instantâneo
+                  <Tooltip title="Uma única rodada sorteada com uma semente: é uma amostra, não uma medida. Para decidir, use as análises de várias rodadas abaixo.">
+                    <span>Resultado instantâneo (rodada única)</span>
+                  </Tooltip>
                 </Button>
               )}
             </>
@@ -191,6 +205,13 @@ export function ReportPanel({ scenarioId }: { scenarioId: string }) {
 
           {hasResult && (
             <>
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message={`Rodada única · semente ${run.seed}`}
+                description="Este resultado é uma amostra de uma execução, não uma medida do sistema. Rode as análises de várias rodadas (faixa de resultados, decisão, suíte) antes de concluir; a semente acima repete esta execução exatamente."
+              />
               <KpiGrid kpis={buildKpis(scenario, run, ticks)} />
               <Row gutter={[16, 16]}>
                 <Col xs={24} xl={12}>

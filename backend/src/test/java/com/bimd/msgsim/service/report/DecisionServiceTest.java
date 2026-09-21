@@ -50,7 +50,7 @@ class DecisionServiceTest {
         DecisionResponse decision = service.decide(scenario(ServiceProfile.EXPONENTIAL, 200), ScoreWeights.DEFAULT, 30, 1L);
 
         // RabbitMQ and Kafka perform alike here; only the per-run cost separates them
-        assertThat(decision.scoreGap()).isLessThan(DecisionService.MIN_MEANINGFUL_GAP * 4);
+        assertThat(decision.scoreGap()).isLessThan(DecisionService.MIN_MEANINGFUL_GAP * 10);
         assertThat(decision.verdict()).isNotBlank();
         assertThat(decision.decidedBy()).isEqualTo("custo");
         assertThat(decision.tie()).isTrue();
@@ -102,6 +102,63 @@ class DecisionServiceTest {
         double gap = points.get(BrokerType.KAFKA).total() - points.get(BrokerType.RABBITMQ).total();
 
         assertThat(gap).isLessThan(1.0);
+    }
+
+    /** Builds per-round points whose technical part (stability+latency+loss) is {@code technical}. */
+    private static List<ScoreCalculator.Points> rounds(double technical, double noise) {
+        return java.util.stream.IntStream.range(0, 20)
+                .mapToObj(i -> new ScoreCalculator.Points(technical + (i % 2 == 0 ? noise : -noise), 0, 0, 5, 5))
+                .toList();
+    }
+
+    @Test
+    void should_tieEveryPairWithinTheDispersion_regardlessOfRank() {
+        // 62, 56 and 55 technical points with +-7 of round-to-round noise: all three are tied
+        var perRound = new java.util.EnumMap<BrokerType, List<ScoreCalculator.Points>>(BrokerType.class);
+        perRound.put(BrokerType.KAFKA, rounds(62, 7));
+        perRound.put(BrokerType.RABBITMQ, rounds(56, 7));
+        perRound.put(BrokerType.SQS, rounds(55, 7));
+
+        var tied = DecisionService.tiedBrokers(perRound);
+
+        assertThat(tied.get(BrokerType.KAFKA)).containsExactlyInAnyOrder(BrokerType.RABBITMQ, BrokerType.SQS);
+        assertThat(tied.get(BrokerType.RABBITMQ)).containsExactlyInAnyOrder(BrokerType.KAFKA, BrokerType.SQS);
+    }
+
+    @Test
+    void should_notTie_when_gapExceedsTheDispersion() {
+        var perRound = new java.util.EnumMap<BrokerType, List<ScoreCalculator.Points>>(BrokerType.class);
+        perRound.put(BrokerType.KAFKA, rounds(80, 1));
+        perRound.put(BrokerType.RABBITMQ, rounds(56, 1));
+        perRound.put(BrokerType.SQS, rounds(55, 1));
+
+        var tied = DecisionService.tiedBrokers(perRound);
+
+        assertThat(tied.get(BrokerType.KAFKA)).isEmpty();
+        assertThat(tied.get(BrokerType.RABBITMQ)).containsExactly(BrokerType.SQS);
+    }
+
+    @Test
+    void should_describeSaturation_when_loadExceedsCapacity() {
+        // 4 consumers x 15 ms = ~266 msg/s of capacity; 1500 msg/s is a 5x+ overload
+        DecisionResponse decision = service.decide(scenario(ServiceProfile.EXPONENTIAL, 1500), ScoreWeights.DEFAULT, 5, 1L);
+
+        for (var broker : decision.brokers()) {
+            var saturation = broker.saturation();
+            assertThat(saturation).as(broker.broker().name()).isNotNull();
+            assertThat(saturation.deficitPerSecond()).isPositive();
+            assertThat(saturation.recommendation()).contains("consumidores").contains("ms");
+            assertThat(saturation.failureMode()).isIn(
+                    "DROP", "PRODUCER_BLOCKED", "INFLIGHT_EXHAUSTED", "UNBOUNDED_BACKLOG");
+            assertThat(saturation.accumulatedCost()).isPositive();
+        }
+    }
+
+    @Test
+    void should_notFlagSaturation_when_loadIsBelowCapacity() {
+        DecisionResponse decision = service.decide(scenario(ServiceProfile.EXPONENTIAL, 150), ScoreWeights.DEFAULT, 5, 1L);
+
+        assertThat(decision.brokers()).allSatisfy(b -> assertThat(b.saturation()).isNull());
     }
 
     private Scenario scenario(ServiceProfile profile, int rate) {

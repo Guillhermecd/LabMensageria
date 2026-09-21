@@ -2,6 +2,7 @@ package com.bimd.msgsim.service.report;
 
 import com.bimd.msgsim.domain.dto.DecisionResponse;
 import com.bimd.msgsim.domain.dto.DecisionResponse.BrokerDecision;
+import com.bimd.msgsim.domain.dto.DecisionResponse.Saturation;
 import com.bimd.msgsim.domain.model.BrokerType;
 import com.bimd.msgsim.domain.model.ExecutionMode;
 import com.bimd.msgsim.domain.model.Scenario;
@@ -36,10 +37,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DecisionService {
 
-    /** Below this many points the difference is inside what weights and heuristics can explain. */
-    static final double MIN_MEANINGFUL_GAP = 5.0;
-    /** The leader must beat the runner-up in at least this share of paired rounds. */
-    static final double MIN_WIN_RATE = 0.9;
+    /**
+     * Floor for the tie threshold, in points: the score is shown with one decimal, so a gap under a
+     * whole point is never called a difference even when the rounds happen to agree closely.
+     */
+    static final double MIN_MEANINGFUL_GAP = 1.0;
+    /** Above this analytical-vs-simulated error the closed-form numbers are not to be trusted. */
+    public static final double MODEL_ERROR_TOLERANCE_PCT = 25;
 
     private final ScenarioRepository scenarioRepository;
     private final UserRepository userRepository;
@@ -124,7 +128,9 @@ public class DecisionService {
         double winRate = wins / (double) rounds;
         double gap = median(totals(leaderPerRound)) - median(totals(runnerPerRound));
         double technicalGap = median(technicalDiffs);
-        boolean tie = Math.abs(technicalGap) < MIN_MEANINGFUL_GAP || (technicalGap > 0 && winRate < MIN_WIN_RATE);
+        Map<BrokerType, List<BrokerType>> tiedWith = tiedBrokers(perRound);
+        boolean tie = tiedWith.get(leader).contains(runnerUp);
+        double dispersion = Math.max(spread(technicals(leaderPerRound)), spread(technicals(runnerPerRound)));
 
         DecisionResponse.Points leaderPoints = meanPoints(perRound.get(leader));
         DecisionResponse.Points runnerPoints = meanPoints(perRound.get(runnerUp));
@@ -140,31 +146,78 @@ public class DecisionService {
             double simP99Worst = s.stream().mapToDouble(RunStatistics::p99Ms).max().orElse(0);
             double peakBacklog = median(s.stream().map(RunStatistics::peakBacklog).toList());
             double lossPct = median(s.stream().map(RunStatistics::lossPct).toList());
+            double modelError = (Math.abs(relativeError(m.p50Ms(), simP50)) + Math.abs(relativeError(m.p99Ms(), simP99))) / 2;
+            Saturation saturation = m.stable() ? null : SaturationAdvisor.analyse(
+                    variants.get(broker), m, model.backlogCeiling(variants.get(broker), broker), s);
             rows.add(new BrokerDecision(
                     broker, median(totals), percentile(totals, 0.10), percentile(totals, 0.90),
-                    meanPoints(perRound.get(broker)), m.p50Ms(), simP50, m.p99Ms(), simP99,
-                    (Math.abs(relativeError(m.p50Ms(), simP50)) + Math.abs(relativeError(m.p99Ms(), simP99))) / 2,
-                    simP99Worst, peakBacklog, lossPct));
+                    meanPoints(perRound.get(broker)), m.p50Ms(), simP50, m.p99Ms(), simP99, modelError,
+                    simP99Worst, peakBacklog, lossPct, totals.stream().min(Double::compare).orElse(0.0),
+                    percentile(s.stream().map(RunStatistics::p99Ms).toList(), 0.95),
+                    s.stream().mapToDouble(RunStatistics::peakBacklog).max().orElse(0),
+                    tiedWith.get(broker), modelError <= MODEL_ERROR_TOLERANCE_PCT, saturation));
         }
 
         ScoreWeights w = weights.normalized();
         return new DecisionResponse(
                 rounds, masterSeed, w.stability(), w.latency(), w.loss(), w.cost(), w.ops(), rows,
                 tie, leader, runnerUp, gap, winRate, decidedBy,
-                verdict(tie, leader, runnerUp, gap, technicalGap, winRate, decidedBy));
+                verdict(tie, leader, runnerUp, gap, technicalGap, dispersion, winRate, decidedBy));
     }
 
     private static String verdict(
-            boolean tie, BrokerType leader, BrokerType runnerUp, double gap, double technicalGap, double winRate,
-            String decidedBy) {
+            boolean tie, BrokerType leader, BrokerType runnerUp, double gap, double technicalGap, double dispersion,
+            double winRate, String decidedBy) {
         Locale pt = Locale.forLanguageTag("pt-BR");
         String caveat = "custo".equals(decidedBy)
                 ? " O custo é o da rodada simulada: projete para o volume real antes de decidir."
                 : "";
-if (tie) { return String.format(pt, "Empate técnico entre %s e %s: nos critérios técnicos (estabilidade, latência, perda) a diferença é de " + "%.1f pontos, dentro do ruído. O desempate seria %s (%.1f pontos a favor de %s no total) — " + "a decisão aqui não é técnica.", leader, runnerUp, Math.abs(technicalGap), decidedBy, gap, leader) + caveat; }
+        if (tie) {
+            return String.format(pt,
+                    "Empate técnico entre %s e %s: a diferença nos critérios técnicos (estabilidade, latência, perda) é de "
+                            + "%.1f pontos, menor que a dispersão entre as rodadas (±%.1f). O desempate seria %s (%.1f pontos a "
+                            + "favor de %s no total) — a decisão aqui não é técnica.",
+                    leader, runnerUp, Math.abs(technicalGap), dispersion, decidedBy, gap, leader) + caveat;
+        }
         return String.format(pt,
-                "%s lidera %s por %.1f pontos e vence em %.0f%% das rodadas. Decidiu: %s.",
-                leader, runnerUp, gap, winRate * 100, decidedBy) + caveat;
+                "%s lidera %s por %.1f pontos (diferença técnica de %.1f, acima da dispersão entre rodadas de ±%.1f) e "
+                        + "vence em %.0f%% das rodadas. Decidiu: %s.",
+                leader, runnerUp, gap, technicalGap, dispersion, winRate * 100, decidedBy) + caveat;
+    }
+
+    /**
+     * Two brokers tie when the gap between their median technical scores (stability, latency, loss)
+     * is smaller than the round-to-round dispersion (half the p10-p90 band of the more spread one),
+     * whatever their rank. Cost and operations carry no simulation noise, so they break a tie but
+     * never create one.
+     */
+    static Map<BrokerType, List<BrokerType>> tiedBrokers(Map<BrokerType, List<ScoreCalculator.Points>> perRound) {
+        Map<BrokerType, List<BrokerType>> tied = new EnumMap<>(BrokerType.class);
+        for (BrokerType a : perRound.keySet()) {
+            List<BrokerType> with = new ArrayList<>();
+            for (BrokerType b : perRound.keySet()) {
+                if (a == b) {
+                    continue;
+                }
+                List<Double> totalsA = technicals(perRound.get(a));
+                List<Double> totalsB = technicals(perRound.get(b));
+                double threshold = Math.max(MIN_MEANINGFUL_GAP, Math.max(spread(totalsA), spread(totalsB)));
+                if (Math.abs(median(totalsA) - median(totalsB)) <= threshold) {
+                    with.add(b);
+                }
+            }
+            tied.put(a, with);
+        }
+        return tied;
+    }
+
+    private static List<Double> technicals(List<ScoreCalculator.Points> points) {
+        return points.stream().map(DecisionService::technical).toList();
+    }
+
+    /** Half the p10-p90 band of the scores across rounds. */
+    private static double spread(List<Double> totals) {
+        return (percentile(totals, 0.90) - percentile(totals, 0.10)) / 2;
     }
 
     private static String decidingCriterion(DecisionResponse.Points a, DecisionResponse.Points b) {

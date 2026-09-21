@@ -154,6 +154,20 @@ export type DecisionPoints = {
   ops: number;
 };
 
+export type FailureMode = 'DROP' | 'PRODUCER_BLOCKED' | 'INFLIGHT_EXHAUSTED' | 'UNBOUNDED_BACKLOG';
+
+/** Replaces p50/p99/final backlog when load > capacity (those only measure the run length). */
+export type Saturation = {
+  ratePerSecond: number;
+  capacityPerSecond: number;
+  deficitPerSecond: number;
+  secondsToCeiling: number | null;
+  ceilingWithinRun: boolean;
+  failureMode: FailureMode;
+  accumulatedCost: number;
+  recommendation: string;
+};
+
 export type BrokerDecision = {
   broker: Broker;
   scoreMedian: number;
@@ -168,6 +182,12 @@ export type BrokerDecision = {
   simP99WorstMs: number;
   peakBacklogMedian: number;
   lossPctMedian: number;
+  scoreWorst: number;
+  simP99P95Ms: number;
+  peakBacklogWorst: number;
+  tiedWith: Broker[];
+  modelReliable: boolean;
+  saturation: Saturation | null;
 };
 
 export type Decision = {
@@ -201,7 +221,6 @@ export type CompareResult = {
   b: RunReport;
   comparison: string;
 };
-
 
 export type SuiteVariant = {
   variant: string;

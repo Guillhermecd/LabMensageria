@@ -69,6 +69,10 @@ public class SimulationState {
     boolean dlqSeen;
     boolean dropSeen;
     boolean blockSeen;
+    /** Instant the broker first hit a backlog ceiling (drop or producer block); -1 while it has not. */
+    double ceilingAtMs = -1;
+    /** True once the broker gave fewer consumers than its steady-state parallelism (SQS in-flight exhausted). */
+    boolean throttledSeen;
     boolean lagWarn;
     boolean burstSeen;
     boolean burstEnd;
@@ -98,6 +102,9 @@ public class SimulationState {
         for (int i = 0; i < removed; i++) {
             sojournSum += nowMs - waiting.poll();
         }
+        if (removed > 0) {
+            markCeiling();
+        }
         inSystem -= removed;
         dropped += removed;
         droppedSecond += removed;
@@ -112,10 +119,19 @@ public class SimulationState {
             sojournSum += nowMs - waiting.poll();
             removed++;
         }
+        if (removed > 0) {
+            markCeiling();
+        }
         inSystem -= removed;
         dropped += removed;
         droppedSecond += removed;
         return removed;
+    }
+
+    void markCeiling() {
+        if (ceilingAtMs < 0) {
+            ceilingAtMs = nowMs;
+        }
     }
 
     /** Failed messages hidden until their retry delay elapses (SQS in-flight, not yet visible). */

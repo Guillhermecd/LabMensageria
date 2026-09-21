@@ -68,6 +68,12 @@ public class KafkaBehavior implements BrokerBehavior {
     }
 
     @Override
+    public java.util.OptionalLong backlogCeiling(Scenario scenario) {
+        int retentionMb = scenario.getRetentionMb() != null ? scenario.getRetentionMb() : DEFAULT_RETENTION_MB;
+        return java.util.OptionalLong.of(BrokerBehavior.messagesThatFit(scenario, retentionMb));
+    }
+
+    @Override
     public int failoverPauseSeconds() {
         return 6;
     }

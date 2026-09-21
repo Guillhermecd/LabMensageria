@@ -20,7 +20,12 @@ public record RunStatistics(
         double rawCapacity,
         double usefulCapacity,
         double lossPct,
-        double endBacklog) {
+        double endBacklog,
+        /** Second the broker first hit its backlog ceiling (drop or producer block), or -1. */
+        double ceilingSecond,
+        double blockedSeconds,
+        /** The broker handed out fewer consumers than its steady-state parallelism at some point. */
+        boolean throttled) {
 
     public static int warmupSeconds(int durationSeconds) {
         return Math.min(Math.max(5, durationSeconds / 10), durationSeconds / 2);
@@ -54,7 +59,10 @@ public record RunStatistics(
                 rawCapacity,
                 rawCapacity * usefulShare,
                 lossPct,
-                all.isEmpty() ? 0 : all.get(all.size() - 1).backlog());
+                all.isEmpty() ? 0 : all.get(all.size() - 1).backlog(),
+                state.ceilingAtMs < 0 ? -1 : state.ceilingAtMs / 1000.0,
+                state.getBlockedSeconds(),
+                state.throttledSeen);
     }
 
     private static double mean(List<TickResult> ticks, ToDoubleFunction<TickResult> field) {

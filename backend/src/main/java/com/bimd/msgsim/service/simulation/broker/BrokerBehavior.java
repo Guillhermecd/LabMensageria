@@ -49,6 +49,9 @@ public interface BrokerBehavior {
     /** Relative operational simplicity (0..1, higher = simpler to run) used by the trade-off score. */
     double operationalSimplicityScore();
 
+    /** Backlog (messages) beyond which the broker drops or blocks; empty when it has no practical ceiling. */
+    java.util.OptionalLong backlogCeiling(Scenario scenario);
+
     /** How many messages of this scenario's size fit in {@code megabytes}. */
     static long messagesThatFit(Scenario scenario, int megabytes) {
         return megabytes * 1024L / Math.max(1, scenario.getMessageSizeKb());

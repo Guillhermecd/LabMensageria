@@ -29,6 +29,11 @@ public class AnalyticalQueueModel {
         this.costEstimator = costEstimator;
     }
 
+    /** Backlog (messages) at which the broker starts dropping or blocking, if it has such a ceiling. */
+    public java.util.OptionalLong backlogCeiling(Scenario scenario, BrokerType broker) {
+        return behaviors.get(broker).backlogCeiling(scenario);
+    }
+
     public BrokerModel compute(Scenario scenario, BrokerType broker) {
         BrokerBehavior behavior = behaviors.get(broker);
         int rate = scenario.getRatePerSecond();

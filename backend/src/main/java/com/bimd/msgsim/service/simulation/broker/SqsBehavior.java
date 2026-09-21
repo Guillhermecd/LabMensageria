@@ -57,6 +57,11 @@ public class SqsBehavior implements BrokerBehavior {
     }
 
     @Override
+    public java.util.OptionalLong backlogCeiling(Scenario scenario) {
+        return java.util.OptionalLong.empty(); // 4-day retention is not reachable in a simulation window
+    }
+
+    @Override
     public int latencyOverheadMs() {
         return 20;
     }

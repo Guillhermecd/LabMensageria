@@ -66,7 +66,7 @@ public class RunController {
     public BatchSummaryResponse createBatch(
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable UUID scenarioId,
-            @RequestParam(defaultValue = "30") int rounds,
+            @RequestParam(defaultValue = "25") int rounds,
             @RequestParam(required = false) Long seed) {
         return batchService.run(principal.getUsername(), scenarioId, rounds, seed);
     }
@@ -76,7 +76,7 @@ public class RunController {
     public DecisionResponse decision(
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable UUID scenarioId,
-            @RequestParam(defaultValue = "30") int rounds,
+            @RequestParam(defaultValue = "25") int rounds,
             @RequestParam(required = false) Long seed,
             @RequestParam(defaultValue = "0.35") double stability,
             @RequestParam(defaultValue = "0.25") double latency,
@@ -92,7 +92,7 @@ public class RunController {
     public SuiteResponse suite(
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable UUID scenarioId,
-            @RequestParam(defaultValue = "20") int rounds,
+            @RequestParam(defaultValue = "25") int rounds,
             @RequestParam(required = false) Long seed,
             @RequestParam(defaultValue = "0.35") double stability,
             @RequestParam(defaultValue = "0.25") double latency,
@@ -108,7 +108,7 @@ public class RunController {
     public SweepResponse sweep(
             @AuthenticationPrincipal UserDetails principal,
             @PathVariable UUID scenarioId,
-            @RequestParam(defaultValue = "20") int rounds,
+            @RequestParam(defaultValue = "25") int rounds,
             @RequestParam(required = false) Long seed) {
         return sweepService.run(principal.getUsername(), scenarioId, rounds, seed);
     }

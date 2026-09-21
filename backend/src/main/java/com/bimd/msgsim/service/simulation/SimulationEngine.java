@@ -101,6 +101,7 @@ public class SimulationEngine {
                 // The producer stops publishing: no arrival is scheduled until the backlog falls.
                 sim.producerBlocked = true;
                 sim.blockedSinceMs = sim.nowMs;
+                sim.markCeiling();
                 if (!sim.blockSeen) {
                     sim.blockSeen = true;
                     sim.addEvent(new EventResult((int) (sim.nowMs / 1000), EventType.QUEUE_FULL,
@@ -185,6 +186,9 @@ public class SimulationEngine {
     /** Starts service for waiting messages while a consumer is free. */
     private void dispatch(SimulationState sim, Scenario scenario, BrokerBehavior behavior) {
         sim.servers = currentServers(sim, scenario, behavior);
+        if (behavior.parallelism(sim, scenario) < behavior.effectiveConsumers(scenario)) {
+            sim.throttledSeen = true;
+        }
         while (sim.busy < sim.servers && sim.waiting.size() > 0) {
             double arrival = sim.waiting.poll();
             int failures = sim.waiting.lastFailures();
