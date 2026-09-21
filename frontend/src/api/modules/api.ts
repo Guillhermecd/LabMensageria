@@ -29,6 +29,13 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   const response = await fetch(`${BASE_URL}${path}`, { ...rest, headers: finalHeaders });
 
+  if (auth && (response.status === 401 || response.status === 403) && authStorage.getToken()) {
+    // Token rejected (expired or signed with a rotated secret): drop the session and go back to login.
+    authStorage.clear();
+    window.location.assign('/login');
+    throw new Error('Sessão expirada. Faça login novamente.');
+  }
+
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(body?.message ?? `Request failed with status ${response.status}`);
