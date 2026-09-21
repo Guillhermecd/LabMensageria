@@ -194,7 +194,12 @@ function DecisionTable({ decision }: { decision: Decision }) {
         },
         {
           title: 'p99 modelo × simulado',
-          render: (_, row) => `${Math.round(row.modelP99Ms)} × ${Math.round(row.simP99Ms)} ms`,
+          render: (_, row) =>
+            row.saturation ? (
+              <Typography.Text type="secondary">— (depende da duração)</Typography.Text>
+            ) : (
+              `${Math.round(row.modelP99Ms)} × ${Math.round(row.simP99Ms)} ms`
+            ),
         },
         {
           title: 'Erro do modelo',
